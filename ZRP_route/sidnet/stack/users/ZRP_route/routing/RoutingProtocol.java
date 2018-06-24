@@ -47,10 +47,10 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
     private static SequenceGenerator seq;
     public static Zone zone;
     private static final boolean is_pause = false;
-    private static final boolean use_agg = false;
+    private static final boolean use_agg = true;
 
     public static final long INTERVAL_TIMING_SEND = 5 * Constants.SECOND;
-    public static final long TIMING_DELAY_SEND = 200 * Constants.MILLI_SECOND;
+    public static final long TIMING_DELAY_SEND = 300 * Constants.MILLI_SECOND;
     
     public static final int LIMIT_PACKET_ID_SIZE = 500;
     
@@ -149,7 +149,12 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
     private Color[] color = new Color[16];
     
     private boolean tepi = false;
-    private boolean is_CH_now = false;
+    
+    ArrayList<NodeEntry> list = new ArrayList<NodeEntry>();
+    ArrayList<NodeEntry> list2 = new ArrayList<NodeEntry>();
+    
+    ArrayList<NodeEntry> list_in = new ArrayList<NodeEntry>();
+    ArrayList<NodeEntry> list_out = new ArrayList<NodeEntry>();
     
     /** Creates a new instance
      *
@@ -250,18 +255,14 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
     public void send(NetMessage msg) {
         //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
         
-        if (myNode.getEnergyManagement()
-        		  .getBattery()
-        		  .getPercentageEnergyLevel() == 0) {
-            System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
-            if (is_pause) myNode.getSimControl().setSpeed(SimManager.PAUSED);
-        }
-        
         // process only if there are energy reserves
         if (myNode.getEnergyManagement()
         		  .getBattery()
-        		  .getPercentageEnergyLevel()< 2)
+        		  .getPercentageEnergyLevel()< 2) {
+            System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
+            if (is_pause) myNode.getSimControl().setSpeed(SimManager.PAUSED);
             return;
+        }
         
         if (this.netQueueFULL)
             return;
@@ -373,7 +374,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
                 DestinationSink ds = new DestinationSink(query.getQuery().getSinkIP(), query.getQuery().getSinkNCSLocation2D(), query.getQuery().getRegion().getID());
                 this.detailQueryProcessed.put(query.getQuery().getID(), ds);
 
-                //if (myNode.getID() == 22) {
+                //if (myNode.ZoneId == 0 || myNode.ZoneId == 1) {
                 //setelah di broadcast, query diteruskan ke app layer
                 sendToAppLayer(query, null);
                 //}
@@ -448,41 +449,53 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         
         double distance = myNode.getNCS_Location2D().distanceTo(loc);
 
-        ArrayList<NodeEntry> list = new ArrayList<NodeEntry>();
-        ArrayList<NodeEntry> list2 = new ArrayList<NodeEntry>();
-
         //ambil list tetangga yang dibuat oleh heartbeat
         LinkedList<NodeEntry> neighboursLinkedList = myNode.neighboursList.getAsLinkedList();
 
-        for(NodeEntry neighbourEntry: neighboursLinkedList) {
-            //if (listTetangga.containsKey(neighbourEntry.ip)) {
-                if (neighbourEntry.getNCS_Location2D().distanceTo(loc) < distance) {
-                    list.add(neighbourEntry);
-                }
-                else list2.add(neighbourEntry);
-            //}
+        if (list.isEmpty() || list2.isEmpty()) {
+            list.clear();
+            list2.clear();
+            for(NodeEntry neighbourEntry: neighboursLinkedList) {
+                //if (listTetangga.containsKey(neighbourEntry.ip)) {
+                    if (neighbourEntry.getNCS_Location2D().distanceTo(loc) < distance) {
+                        list.add(neighbourEntry);
+                    }
+                    else list2.add(neighbourEntry);
+                //}
+            }
+        }
+        
+        if (list_in.isEmpty() && list_out.isEmpty()) {
+            list_in = list;
+            list_out = list2;
         }
 
         double energi = -1;
 
-        for(NodeEntry item : list) {
-            if (listTetangga.containsKey(item.ip)) {
-                if (listTetangga.get(item.ip).energyLeft > energi) {
-                    nextHop = item;
-                    energi = listTetangga.get(item.ip).energyLeft;
-                }
-            }
-        }
-        
-        if (nextHop == null)  {
-            for(NodeEntry item : list2) {
+        if (!list_in.isEmpty()) {
+            nextHop = list_in.get(0);
+            list_in.remove(0);
+            /*for(NodeEntry item : list_in) {
                 if (listTetangga.containsKey(item.ip)) {
                     if (listTetangga.get(item.ip).energyLeft > energi) {
                         nextHop = item;
                         energi = listTetangga.get(item.ip).energyLeft;
                     }
                 }
-            }
+            }*/
+        }
+        
+        if (nextHop == null)  {
+            nextHop = list_out.get(0);
+            list_out.remove(0);
+            /*for(NodeEntry item : list2) {
+                if (listTetangga.containsKey(item.ip)) {
+                    if (listTetangga.get(item.ip).energyLeft > energi) {
+                        nextHop = item;
+                        energi = listTetangga.get(item.ip).energyLeft;
+                    }
+                }
+            }*/
         }
 
         return nextHop;
@@ -516,7 +529,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         }
         
         if (arrowHead != null) {
-            //topologyGUI.removeLink(myNode.getNCS_Location2D(),arrowHead, 1);
+            topologyGUI.removeLink(myNode.getNCS_Location2D(),arrowHead, 1);
         }
         
         //tambahkan informasi region
@@ -576,7 +589,9 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
     
     private void poolHandleMessageDataValue(MessageDataValue msg) {
         //buat keyHashMap
-        String hashMapKey = String.valueOf(msg.zone_id);
+        String hashMapKey;
+        if (use_agg) hashMapKey = String.valueOf(msg.zone_id);
+        else hashMapKey = String.valueOf(msg.sequenceNumber);
 
         //cek jika sudah terdapat
         if (rcvPool.containsKey(hashMapKey)) {
@@ -624,7 +639,6 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         
         //NodeEntry CH = pilihanCH.get((int) (zone.zone.get(myNode.ZoneId).count%pilihanCH.size()));
         NodeEntry CH = zone.zone.get(myNode.ZoneId).CH;
-        this.is_CH_now = (CH.ip == myNode.getIP());
         
         return new ip_ncsloc(CH.ip,CH.getNCS_Location2D());
     }
@@ -634,15 +648,11 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         
         if (myNode.getEnergyManagement()
         		  .getBattery()
-        		  .getPercentageEnergyLevel() == 0) {
+        		  .getPercentageEnergyLevel()< 2) {
             System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
             if (is_pause) myNode.getSimControl().setSpeed(SimManager.PAUSED);
-        }
-        
-        if (myNode.getEnergyManagement()
-        		  .getBattery()
-        		  .getPercentageEnergyLevel()< 2)
             return;
+        }
         
         if (this.netQueueFULL)
             return;
@@ -774,18 +784,14 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
     
     public void sendToAppLayer(Message msg, NetAddress src)
     {
-        if (myNode.getEnergyManagement()
-        		  .getBattery()
-        		  .getPercentageEnergyLevel() == 0) {
-            System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
-            if (is_pause) myNode.getSimControl().setSpeed(SimManager.PAUSED);
-        }
-        
     	// ignore if not enough energy
         if (myNode.getEnergyManagement()
         		  .getBattery()
-        		  .getPercentageEnergyLevel()< 2)
+        		  .getPercentageEnergyLevel()< 2) {
+            System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
+            if (is_pause) myNode.getSimControl().setSpeed(SimManager.PAUSED);
             return;
+        }
 
         appInterface.receive(msg, src, null, (byte)-1,
         					 NetAddress.LOCAL, (byte)-1, (byte)-1);
@@ -795,15 +801,11 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
     {
         if (myNode.getEnergyManagement()
         		  .getBattery()
-        		  .getPercentageEnergyLevel() == 0) {
+        		  .getPercentageEnergyLevel()< 2) {
             System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
             if (is_pause) myNode.getSimControl().setSpeed(SimManager.PAUSED);
-        }
-        
-        if (myNode.getEnergyManagement()
-        		  .getBattery()
-        		  .getPercentageEnergyLevel()< 2)
             return 0;
+        }
      
         /*myNode.getSimManager().getSimGUI()
 		  .getAnimationDrawingTool()

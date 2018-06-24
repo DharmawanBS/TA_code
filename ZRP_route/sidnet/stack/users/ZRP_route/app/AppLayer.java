@@ -165,56 +165,62 @@ public class AppLayer implements AppInterface, CallbackInterface {
            //System.out.println(myNode.getID()+""+params.toString());
 
            JistAPI.sleepBlock(samplingInterval);
+           
+           if (myNode.getEnergyManagement().getBattery().getPercentageEnergyLevel() >= 1) {
         
-           double sensedValue = myNode.readAnalogSensorData(0);
+            double sensedValue = myNode.readAnalogSensorData(0);
+
+            myNode.getNodeGUI().colorCode.mark(colorProfileGeneric,ColorProfileGeneric.SENSE, 5);
+
+            MessageDataValue msgDataValue = new MessageDataValue(sensedValue,queryId,sequenceNumber,myNode.getID());
+
+            msgDataValue.zone_id = zone;
+
+            stats.markPacketSent("DATA", sequenceNumber);
+            stats.markPacketSent("DATA_"+myNode.ZoneId, sequenceNumber);
+            System.out.println("create sensing "+sequenceNumber);
+
+            //Wrap pesan ke protokol pengiriman
+            ProtocolMessageWrapper msgValue 
+                 = new ProtocolMessageWrapper(msgDataValue, sinkLocation,
+                                                                 sequenceNumber, JistAPI.getTime());
+
+
+            netEntity.send(msgValue, 
+                                           sinkAddress,
+                                           routingProtocolIndex,
+                                           Constants.NET_PRIORITY_NORMAL, (byte)40); 
+
+            //stats.incrementValue("AV_Created", 1);
+            //stats.incrementValue("AV_Created_"+myNode.ZoneId, 1);
+
+            myNode.getNodeGUI().colorCode.mark(colorProfileGeneric,ColorProfileGeneric.TRANSMIT, 5);
+
+            //if (this.create % 5 == 0)
+            //changeCH();
+            this.create++;
            
-           myNode.getNodeGUI().colorCode.mark(colorProfileGeneric,ColorProfileGeneric.SENSE, 5);
            
-           MessageDataValue msgDataValue = new MessageDataValue(sensedValue,queryId,sequenceNumber,myNode.getID());
-           
-           msgDataValue.zone_id = zone;
-           
-           stats.markPacketSent("DATA", sequenceNumber);
-           stats.markPacketSent("DATA_"+myNode.ZoneId, sequenceNumber);
-           System.out.println("create sensing "+sequenceNumber);
-           
-           //Wrap pesan ke protokol pengiriman
-           ProtocolMessageWrapper msgValue 
-           	= new ProtocolMessageWrapper(msgDataValue, sinkLocation,
-           							sequenceNumber, JistAPI.getTime());
-           
-           
-           netEntity.send(msgValue, 
-        		   		  sinkAddress,
-        		   		  routingProtocolIndex,
-        		   		  Constants.NET_PRIORITY_NORMAL, (byte)40); 
-           
-           //stats.incrementValue("AV_Created", 1);
-           //stats.incrementValue("AV_Created_"+myNode.ZoneId, 1);
-           
-           myNode.getNodeGUI().colorCode.mark(colorProfileGeneric,ColorProfileGeneric.TRANSMIT, 5);
-           
-           //if (this.create % 5 == 0)
-           //changeCH();
-           this.create++;
-           
-           if (JistAPI.getTime() < endTime)
-           {
-                params.set(0, samplingInterval);
-                params.set(1, endTime);
-                params.set(2, queryId);
-                params.set(3, seq.getandincrement());
-                params.set(4, sinkAddress);
-                params.set(5, sinkLocation);
-                params.set(6, zone);
-                
-                // this is to schedule the next run(args). 
-                //DO NOT use WHILE loops to do this, 
-                // nor call the function directly. Let JiST handle it 
-                ((AppInterface)self).sensing(params);
-           }
-           else {
-               myNode.getSimControl().setSpeed(SimManager.PAUSED);
+            if (JistAPI.getTime() < endTime)
+            {
+                //if (this.create < 10) {
+                     params.set(0, samplingInterval);
+                     params.set(1, endTime);
+                     params.set(2, queryId);
+                     params.set(3, seq.getandincrement());
+                     params.set(4, sinkAddress);
+                     params.set(5, sinkLocation);
+                     params.set(6, zone);
+
+                     // this is to schedule the next run(args). 
+                     //DO NOT use WHILE loops to do this, 
+                     // nor call the function directly. Let JiST handle it 
+                     ((AppInterface)self).sensing(params);
+                //}
+            }
+            else {
+                myNode.getSimControl().setSpeed(SimManager.PAUSED);
+            }
            }
       }
       
@@ -270,16 +276,12 @@ public class AppLayer implements AppInterface, CallbackInterface {
      */
     public void receive(Message msg, NetAddress src, MacAddress lastHop, byte macId, NetAddress dst, byte priority, byte ttl) 
     {   
-        if (myNode.getEnergyManagement()
-        		  .getBattery()
-        		  .getPercentageEnergyLevel() == 0) {
+        //System.out.println("receive app_layer");
+        if (myNode.getEnergyManagement().getBattery().getPercentageEnergyLevel() < 5) {
             System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
             myNode.getSimControl().setSpeed(SimManager.PAUSED);
-        }
-        
-        //System.out.println("receive app_layer");
-        if (myNode.getEnergyManagement().getBattery().getPercentageEnergyLevel() < 5)
             return;
+        }
         
         //stats.incrementValue("AV_Received", 1);
         

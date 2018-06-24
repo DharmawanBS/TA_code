@@ -296,12 +296,12 @@ public class ZRPDriver {
     PhenomenaLayerInterface phenomenaLayer = new GenericDynamicPhenomenon(); // but it can be something else, such as a moving-objects field
     simManager.registerAndRun(phenomenaLayer,simGUI.getSensorsPanelContext());     // needs to be done ... internals
     
-    topologyGUI.addLink(new Location2D(100,0).toNCS(fieldContext), new Location2D(100,400).toNCS(fieldContext), 0, Color.RED, TopologyGUI.HeadType.NO_ARROW);
-    topologyGUI.addLink(new Location2D(200,0).toNCS(fieldContext), new Location2D(200,400).toNCS(fieldContext), 0, Color.RED, TopologyGUI.HeadType.NO_ARROW);
-    topologyGUI.addLink(new Location2D(300,0).toNCS(fieldContext), new Location2D(300,400).toNCS(fieldContext), 0, Color.RED, TopologyGUI.HeadType.NO_ARROW);
-    topologyGUI.addLink(new Location2D(0,100).toNCS(fieldContext), new Location2D(400,100).toNCS(fieldContext), 0, Color.RED, TopologyGUI.HeadType.NO_ARROW);
-    topologyGUI.addLink(new Location2D(0,200).toNCS(fieldContext), new Location2D(400,200).toNCS(fieldContext), 0, Color.RED, TopologyGUI.HeadType.NO_ARROW);
-    topologyGUI.addLink(new Location2D(0,300).toNCS(fieldContext), new Location2D(400,300).toNCS(fieldContext), 0, Color.RED, TopologyGUI.HeadType.NO_ARROW);
+    topologyGUI.addLink(new Location2D(length/4,0).toNCS(fieldContext), new Location2D(length/4,length).toNCS(fieldContext), 0, Color.RED, TopologyGUI.HeadType.NO_ARROW);
+    topologyGUI.addLink(new Location2D(length/2,0).toNCS(fieldContext), new Location2D(length/2,length).toNCS(fieldContext), 0, Color.RED, TopologyGUI.HeadType.NO_ARROW);
+    topologyGUI.addLink(new Location2D(length*3/4,0).toNCS(fieldContext), new Location2D(length*3/4,length).toNCS(fieldContext), 0, Color.RED, TopologyGUI.HeadType.NO_ARROW);
+    topologyGUI.addLink(new Location2D(0,length/4).toNCS(fieldContext), new Location2D(length,length/4).toNCS(fieldContext), 0, Color.RED, TopologyGUI.HeadType.NO_ARROW);
+    topologyGUI.addLink(new Location2D(0,length/2).toNCS(fieldContext), new Location2D(length,length/2).toNCS(fieldContext), 0, Color.RED, TopologyGUI.HeadType.NO_ARROW);
+    topologyGUI.addLink(new Location2D(0,length*3/4).toNCS(fieldContext), new Location2D(length,length*3/4).toNCS(fieldContext), 0, Color.RED, TopologyGUI.HeadType.NO_ARROW);
     
     /** All the nodes will measure the same environment in this case, but this is not a limitation. You can have them heterogeneous */
     for (int i = 0; i < nodes; i++) {

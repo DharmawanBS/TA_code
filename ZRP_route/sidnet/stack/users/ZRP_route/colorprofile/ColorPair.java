@@ -9,7 +9,6 @@
 
 package sidnet.stack.users.ZRP_route.colorprofile;
 
-import main.java.sidnet.colorprofiles.*;
 import java.awt.Color;
 /**
  *
