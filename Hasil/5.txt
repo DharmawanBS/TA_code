@@ -1,0 +1,11 @@
+Mati 181 26985990351426
+
+nodes   = 200
+size    = 300 x 300
+time    = 1000000 seconds
+sampling 50 jam interval 10 detik
+
+sent 582331
+receive 284520
+ratio 49
+latency max 599814

@@ -1,0 +1,11 @@
+nodes   = 200
+size    = 300 x 300
+time    = 1000000 seconds
+sampling 50 jam interval 10 detik
+NCA 10
+NCD 190
+
+sent 667782
+receive 213728
+ratio 33
+latency max 599810
