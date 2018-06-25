@@ -1,11 +1,11 @@
-Mati 114 22369866715240
+Mati 181 26985990351426 7.5 jam
 
 nodes   = 200
 size    = 300 x 300
 time    = 1000000 seconds
 sampling 50 jam interval 10 detik
 
-sent 524954
-receive 316244
-ratio 61
-latency max 599871
+sent 582331
+receive 284520
+ratio 49
+latency max 599814

@@ -46,8 +46,11 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
     public static final byte SUCCESS = 0;
     private static SequenceGenerator seq;
     public static Zone zone;
-    private static final boolean is_pause = false;
+    private static final boolean is_pause = true;
     private static final boolean use_agg = true;
+    private static final boolean pool_all = true;
+    private static final String key = "zrp";
+    private static final boolean direct_send = true;
 
     public static final long INTERVAL_TIMING_SEND = 5 * Constants.SECOND;
     public static final long TIMING_DELAY_SEND = 300 * Constants.MILLI_SECOND;
@@ -236,7 +239,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
                 
                 handleMessagePool(nmip);
             }
-            nodeDiscover();
+            //nodeDiscover();
             
             //handleChangeCH(myNode.getNCS_Location2D(),myNode.getEnergyManagement().getBattery().getPercentageEnergyLevel(),null);
         }
@@ -332,7 +335,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         LinkedList<NodeEntry> nextList = nextHop.getAsLinkedList();
         NodeEntry next = nextList.get((int) (myNode.myZone.count%nextList.size()));*/
         
-        NodeEntry next = findNextHop(mpdv.sinkLocation,mpdv.sinkIP,false);
+        NodeEntry next = findNextHop(mpdv.sinkLocation,mpdv.sinkIP,false,null);
         
         NetMessage.Ip nmip = new NetMessage.Ip(sndMsg, myNode.getIP(), mpdv.sinkIP, Constants.NET_PROTOCOL_INDEX_1, Constants.NET_PRIORITY_NORMAL, (byte)100);
         sendToLinkLayer(nmip, next.ip);
@@ -374,7 +377,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
                 DestinationSink ds = new DestinationSink(query.getQuery().getSinkIP(), query.getQuery().getSinkNCSLocation2D(), query.getQuery().getRegion().getID());
                 this.detailQueryProcessed.put(query.getQuery().getID(), ds);
 
-                //if (myNode.ZoneId == 0 || myNode.ZoneId == 1) {
+                //if (myNode.ZoneId == 1) {
                 //setelah di broadcast, query diteruskan ke app layer
                 sendToAppLayer(query, null);
                 //}
@@ -389,13 +392,18 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         sendToLinkLayer(nmip, NetAddress.ANY);
     }
     
-    private NodeEntry findNextHop(NCS_Location2D loc,NetAddress ip,boolean intra) {
+    private NodeEntry findNextHop(NCS_Location2D loc,NetAddress ip,boolean intra,MessageDataValue msg) {
+        
+        if (direct_send && msg != null) {
+            NodeEntry sink = myNode.neighboursList.get(detailQueryProcessed.get(msg.queryId).sinkIP);
+            if (sink != null) return sink;
+        }
         
         NodeEntry nextHop = (intra) ? findNextHop_in(loc) : findNextHop_out(loc,ip);
         
         if (nextHop == null) {
             String a = (intra) ? "in" : "out";
-            System.out.println("Random "+a+" "+myNode.getID());
+            //System.out.println("Random "+a+" "+myNode.getID());
             nextHop = myNode.neighboursList.getAsLinkedList().get((int) (Math.random()*myNode.neighboursList.size()));
         }
         
@@ -514,7 +522,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         }*/
 
         //cari cluster head
-        ip_ncsloc myCH = getMyClusterHead();
+        ip_ncsloc myCH = getMyClusterHead(msg);
         
         NCS_Location2D CH_loc = myCH.getLoc();
         NetAddress CH_ip = myCH.getIp();
@@ -529,7 +537,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         }
         
         if (arrowHead != null) {
-            topologyGUI.removeLink(myNode.getNCS_Location2D(),arrowHead, 1);
+            //topologyGUI.removeLink(myNode.getNCS_Location2D(),arrowHead, 1);
         }
         
         //tambahkan informasi region
@@ -547,9 +555,9 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         }
         else {
             //cari next hop;
-            NodeEntry nextHop = findNextHop(CH_loc,null,true);
+            NodeEntry nextHop = findNextHop(CH_loc,null,true,msg);
             
-            //System.out.println("Di node "+myNode.getID()+" pesan dari "+msg.producerNodeId+" CH node lain "+CH_ip+" kirim ke "+nextHop.ip);
+            System.out.println("Di node "+myNode.getID()+" pesan dari "+msg.producerNodeId+" CH node lain "+CH_ip+" kirim ke "+nextHop.ip);
             ProtocolMessageWrapper pmw = new ProtocolMessageWrapper(msg);
             pmw.setS_seq(msg.sequenceNumber);
             NetMessage.Ip nmip = new NetMessage.Ip(pmw, myNode.getIP(), detailQueryProcessed.get(msg.queryId).sinkIP, Constants.NET_PROTOCOL_INDEX_1, Constants.NET_PRIORITY_NORMAL, (byte)100);
@@ -590,14 +598,22 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
     private void poolHandleMessageDataValue(MessageDataValue msg) {
         //buat keyHashMap
         String hashMapKey;
-        if (use_agg) hashMapKey = String.valueOf(msg.zone_id);
+        if (pool_all) hashMapKey = key;
+        else if (use_agg) hashMapKey = String.valueOf(msg.zone_id);
         else hashMapKey = String.valueOf(msg.sequenceNumber);
 
         //cek jika sudah terdapat
         if (rcvPool.containsKey(hashMapKey)) {
             //System.out.println(myNode.getID()+" duplicate pool "+ msg.sequenceNumber+" "+rcvPool.size());
             
-            if (use_agg) {
+            if (pool_all) {
+                poolReceivedItem item_pool = rcvPool.get(hashMapKey);
+                item_pool.putAVG(msg.dataValue);
+                item_pool.putMAX(msg.dataValue);
+                item_pool.putMIN(msg.dataValue);
+                item_pool.countdataValue++;
+            }
+            else if (use_agg) {
                 poolReceivedItem item_pool = rcvPool.get(hashMapKey);
                 item_pool.putAVG(msg.dataValue);
                 item_pool.putMAX(msg.dataValue);
@@ -634,10 +650,16 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         }
     }
     
-    private ip_ncsloc getMyClusterHead() {
+    private ip_ncsloc getMyClusterHead(MessageDataValue msg) {
         //LinkedList<NodeEntry> pilihanCH = zone.zone.get(myNode.ZoneId).getZone_item().getAsLinkedList();
         
         //NodeEntry CH = pilihanCH.get((int) (zone.zone.get(myNode.ZoneId).count%pilihanCH.size()));
+        
+        if (direct_send) {
+            NodeEntry sink = myNode.neighboursList.get(detailQueryProcessed.get(msg.queryId).sinkIP);
+            if (sink != null) return new ip_ncsloc(sink.ip,sink.getNCS_Location2D());
+        }
+        
         NodeEntry CH = zone.zone.get(myNode.ZoneId).CH;
         
         return new ip_ncsloc(CH.ip,CH.getNCS_Location2D());

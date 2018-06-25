@@ -178,7 +178,7 @@ public class AppLayer implements AppInterface, CallbackInterface {
 
             stats.markPacketSent("DATA", sequenceNumber);
             stats.markPacketSent("DATA_"+myNode.ZoneId, sequenceNumber);
-            System.out.println("create sensing "+sequenceNumber);
+            System.out.println("create sensing di "+myNode.getID()+" "+sequenceNumber);
 
             //Wrap pesan ke protokol pengiriman
             ProtocolMessageWrapper msgValue 
@@ -352,7 +352,7 @@ public class AppLayer implements AppInterface, CallbackInterface {
             for(int i=0;i<16;i++) {
                 if (! masuk[i]) out = out+" "+i;
             }
-            System.out.println(out);
+            //System.out.println(out);
         }
     }
  //2 3 8 9 12

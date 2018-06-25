@@ -240,7 +240,7 @@ public class ZRPDriver {
     ArrayList<Location2D> horizontal = listGaris(length,true);
     ArrayList<Location2D> vertical = listGaris(length,false);
     
-    int sink = 49;
+    int sink = 36;
     //int sink = (int) (Math.random() * nodes + 0);
       System.out.println("sink = "+sink);
     for(int i=0; i<nodes; i++) {
