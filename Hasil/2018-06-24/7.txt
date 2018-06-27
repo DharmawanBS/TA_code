@@ -1,0 +1,11 @@
+Mati 6.3 jam
+
+nodes   = 200
+size    = 300 x 300
+time    = 1000000 seconds
+sampling 50 jam interval 10 detik
+
+sent 553275
+receive 337648
+ratio 62
+latency max 599378
