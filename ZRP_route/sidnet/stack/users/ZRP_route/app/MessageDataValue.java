@@ -19,6 +19,11 @@ import sidnet.core.misc.NCS_Location2D;
  */
 public class MessageDataValue implements Message {
     public final double dataValue;
+    public double maxdataValue;
+    public double mindataValue;
+    public long count;
+    public int priority;
+    
     public final int queryId;
     public final long sequenceNumber;
     public int producerNodeId;
@@ -35,8 +40,6 @@ public class MessageDataValue implements Message {
         this.dataValue = dataValue;
         queryId        = -1;
         sequenceNumber = -1;
-        this.CH_ip = null;
-        this.CH_loc = null;
     }
     
     public MessageDataValue(double dataValue, int queryId,
@@ -45,8 +48,6 @@ public class MessageDataValue implements Message {
         this.queryId   = queryId;
         this.sequenceNumber = sequenceNumber;
         this.producerNodeId = producerNodeId;
-        this.CH_ip = null;
-        this.CH_loc = null;
     }
     
     /** {@inheritDoc} */

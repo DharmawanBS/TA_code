@@ -7,7 +7,6 @@ package sidnet.stack.users.ZRP_route.driver;
 
 import java.util.ArrayList;
 import jist.swans.net.NetAddress;
-import sidnet.core.misc.NCS_Location2D;
 import sidnet.core.misc.NodeEntry;
 import sidnet.core.misc.NodesList;
 

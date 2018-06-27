@@ -24,8 +24,6 @@ public class MessageHeartbeat implements Message
     
     private NCS_Location2D loc = null;
     
-    public int zone_id = -1;
-    
     public NCS_Location2D getNCS_Location(){ return loc;};
     public void setNCS_Location(NCS_Location2D loc){ this.loc = loc;};
     
@@ -45,12 +43,6 @@ public class MessageHeartbeat implements Message
     public MessageHeartbeat(boolean unregister)
     {
         this.unregister = unregister;
-    }
-    
-    public MessageHeartbeat(boolean unregister,int zone_id)
-    {
-        this.unregister = unregister;
-        this.zone_id = zone_id;
     }
     
     public MessageHeartbeat() {

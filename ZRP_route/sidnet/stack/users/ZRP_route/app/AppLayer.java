@@ -25,8 +25,9 @@ import sidnet.core.simcontrol.SimManager;
 import sidnet.stack.std.routing.heartbeat.MessageHeartbeat;
 import sidnet.stack.users.ZRP_route.driver.SequenceGenerator;
 import sidnet.stack.users.ZRP_route.routing.MessagePoolDataValue;
+import sidnet.stack.users.ZRP_route.ignoredpackage.PoolReceivedItem;
+import sidnet.stack.users.ZRP_route.ignoredpackage.ReadCSVFile;
 import sidnet.stack.users.ZRP_route.routing.ProtocolMessageWrapper;
-import sidnet.utilityviews.statscollector.StatEntry_EnergyLeftPercentage;
 import sidnet.utilityviews.statscollector.StatsCollector;
 
 /**
@@ -61,10 +62,14 @@ public class AppLayer implements AppInterface, CallbackInterface {
     
     private static SequenceGenerator seq;
     
+    private LocalPool aap = new LocalPool();
+    
     // do not make this static
     private ColorProfileGeneric colorProfileGeneric = new ColorProfileGeneric(); 
     
     private long create = 0;
+    
+    private final ReadCSVFile file = new ReadCSVFile();
     
     /** Creates a new instance of the AppP2P */
     public AppLayer(Node myNode, 
@@ -124,11 +129,6 @@ public class AppLayer implements AppInterface, CallbackInterface {
          }
           
           if (JistAPI.getTime()/Constants.MINUTE < 60) {
-              /*if (myNode.getID() == 0)
-              {
-                  topologyGUI.addLink(new NCS_Location2D(0,0), new NCS_Location2D(1,1), 0 , Color.blue);
-                  topologyGUI.addLink(3, 5, 0, Color.green);
-              }*/
               
                JistAPI.sleep(5000*Constants.MILLI_SECOND);  // 5000 milliseconds
               
@@ -146,14 +146,41 @@ public class AppLayer implements AppInterface, CallbackInterface {
         run(null);
     }
     
+    private void send_message(int priority,int queryId,long sequenceNumber,int zone,Location2D sinkLocation,NetAddress sinkAddress) {
+        PoolReceivedItem sentValue = aap.getData(priority);
+                
+        MessageDataValue msgDataValue = new MessageDataValue(sentValue.avgdataValue,queryId,sequenceNumber,myNode.getID());
+        msgDataValue.zone_id = zone;
+        msgDataValue.maxdataValue = sentValue.maxdataValue;
+        msgDataValue.mindataValue = sentValue.mindataValue;
+        msgDataValue.count = sentValue.countdataValue;
+        msgDataValue.priority = priority;
+
+        stats.markPacketSent("DATA", sequenceNumber);
+        stats.markPacketSent("DATA_PRI_"+priority, sequenceNumber);
+        //stats.markPacketSent("DATA_"+myNode.ZoneId, sequenceNumber);
+        System.out.println("send "+priority+" "+sequenceNumber);
+
+        //Wrap pesan ke protokol pengiriman
+        ProtocolMessageWrapper msgValue
+         = new ProtocolMessageWrapper(msgDataValue, sinkLocation,
+                                         sequenceNumber, JistAPI.getTime());
+        
+        //kirim
+        netEntity.send(msgValue,
+                                   sinkAddress,
+                                   routingProtocolIndex,
+                                   Constants.NET_PRIORITY_NORMAL, (byte)40);
+
+        myNode.getNodeGUI().colorCode.mark(colorProfileGeneric,ColorProfileGeneric.TRANSMIT, 5);
+        this.create++;
+    }
+    
     /* Sensing the phenomena is most likely a periodic process. We wrote a procedure to do so.
      * Since the sensing() takes place at various simulation-time, this function should be called through a proxy reference, rather than directly to avoid
      * an infinite starvation loop */
       public void sensing(List params)
       {
-           //sensing 0 3707922670203
-           //sensing 0 3757922670203
-          
            long samplingInterval  = (Long)params.get(0);
            long endTime           = (Long)params.get(1);
            int  queryId           = (Integer)params.get(2);
@@ -168,38 +195,26 @@ public class AppLayer implements AppInterface, CallbackInterface {
            
            if (myNode.getEnergyManagement().getBattery().getPercentageEnergyLevel() >= 1) {
         
-            double sensedValue = myNode.readAnalogSensorData(0);
+            //double sensedValue = myNode.readAnalogSensorData(0);
+            double sensedValue = file.getData(myNode.ZoneId, (int) (JistAPI.getTime() / Constants.HOUR));
+            if (sensedValue == -1) return;
+            aap.putValue(sensedValue,queryId);
 
             myNode.getNodeGUI().colorCode.mark(colorProfileGeneric,ColorProfileGeneric.SENSE, 5);
-
-            MessageDataValue msgDataValue = new MessageDataValue(sensedValue,queryId,sequenceNumber,myNode.getID());
-
-            msgDataValue.zone_id = zone;
-
-            stats.markPacketSent("DATA", sequenceNumber);
-            stats.markPacketSent("DATA_"+myNode.ZoneId, sequenceNumber);
-            System.out.println("create sensing di "+myNode.getID()+" "+sequenceNumber);
-
-            //Wrap pesan ke protokol pengiriman
-            ProtocolMessageWrapper msgValue 
-                 = new ProtocolMessageWrapper(msgDataValue, sinkLocation,
-                                                                 sequenceNumber, JistAPI.getTime());
-
-
-            netEntity.send(msgValue, 
-                                           sinkAddress,
-                                           routingProtocolIndex,
-                                           Constants.NET_PRIORITY_NORMAL, (byte)40); 
-
-            //stats.incrementValue("AV_Created", 1);
-            //stats.incrementValue("AV_Created_"+myNode.ZoneId, 1);
-
-            myNode.getNodeGUI().colorCode.mark(colorProfileGeneric,ColorProfileGeneric.TRANSMIT, 5);
+            
+            if (aap.isPoolFull(1)) {
+                send_message(1,queryId,sequenceNumber,zone,sinkLocation,sinkAddress);
+                
+                if (aap.isPoolFull(2)) {
+                    JistAPI.sleepBlock(Konstanta.TIMING_DELAY_SEND_PRI);
+                }
+            }
+            if (aap.isPoolFull(2)) {
+                send_message(2,queryId,sequenceNumber,zone,sinkLocation,sinkAddress);
+            }
 
             //if (this.create % 5 == 0)
             //changeCH();
-            this.create++;
-           
            
             if (JistAPI.getTime() < endTime)
             {
@@ -221,6 +236,11 @@ public class AppLayer implements AppInterface, CallbackInterface {
             else {
                 myNode.getSimControl().setSpeed(SimManager.PAUSED);
             }
+           }
+           else {
+               System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
+               if (Konstanta.IS_PAUSE) myNode.getSimControl().setSpeed(SimManager.PAUSED);
+               return;
            }
       }
       
@@ -279,11 +299,21 @@ public class AppLayer implements AppInterface, CallbackInterface {
         //System.out.println("receive app_layer");
         if (myNode.getEnergyManagement().getBattery().getPercentageEnergyLevel() < 5) {
             System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
-            myNode.getSimControl().setSpeed(SimManager.PAUSED);
+            if (Konstanta.IS_PAUSE) myNode.getSimControl().setSpeed(SimManager.PAUSED);
             return;
         }
         
         //stats.incrementValue("AV_Received", 1);
+        
+        if (msg instanceof DropperNotifyAppLayer) {
+            DropperNotifyAppLayer dnal = (DropperNotifyAppLayer) msg;
+            if (dnal.increaseWindow) {
+                aap.increasePoolSize(((DropperNotifyAppLayer) msg).priority);
+            }
+            if (dnal.reduceWindow) {
+                aap.reducePoolSize(((DropperNotifyAppLayer) msg).priority);
+            }
+        }
         
         if (msg instanceof MessageQuery) { /* This is a source node. It receives the query request, and not it prepares to do the periodic sensing/sampling */
              MessageQuery msgQuery = (MessageQuery)msg;
@@ -319,8 +349,9 @@ public class AppLayer implements AppInterface, CallbackInterface {
             //System.out.println("sink receive data");
             MessageDataValue msgData = (MessageDataValue)msg;
             stats.markPacketReceived("DATA", msgData.sequenceNumber);
-            stats.markPacketReceived("DATA_"+msgData.zone_id, msgData.sequenceNumber);
-            System.out.println("receive value "+msgData.sequenceNumber);
+            //stats.markPacketReceived("DATA_"+msgData.zone_id, msgData.sequenceNumber);
+            stats.markPacketReceived("DATA_PRI_"+msgData.priority, msgData.sequenceNumber);
+            System.out.println("receive value "+msgData.priority+" "+msgData.sequenceNumber);
             myNode.getNodeGUI().setUserDefinedData1((int)msgData.dataValue);
             myNode.getNodeGUI().setUserDefinedData2((int)msgData.sequenceNumber);
 
@@ -337,17 +368,15 @@ public class AppLayer implements AppInterface, CallbackInterface {
         // it is a data message, 
         // which means this node is the sink (consumer node)
         if (msg instanceof MessagePoolDataValue) {
-            //System.out.println("sink receive pool "+((MessagePoolDataValue) msg).zone_id);
-            //topologyGUI.removeGroup(((MessagePoolDataValue) msg).zone_id+3);
             masuk[((MessagePoolDataValue) msg).zone_id] = true;
             
             MessagePoolDataValue msgData = (MessagePoolDataValue)msg;
             
             stats.markPacketReceived("DATA", msgData.sequenceNumber);
-            stats.markPacketReceived("DATA_"+msgData.zone_id, msgData.sequenceNumber);
+            stats.markPacketReceived("DATA_PRI_"+msgData.priority, msgData.sequenceNumber);
+            //stats.markPacketReceived("DATA_"+msgData.zone_id, msgData.sequenceNumber);
             System.out.println("receive pool "+msgData.sequenceNumber);
-            //stats.incrementValue("AV_Received", 1);
-            //stats.incrementValue("AV_Received_"+((MessagePoolDataValue) msg).zone_id, 1);
+            
             String out = "Belum tiba di sink ";
             for(int i=0;i<16;i++) {
                 if (! masuk[i]) out = out+" "+i;

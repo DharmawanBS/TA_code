@@ -81,7 +81,7 @@ public class Node implements NodeAPI, NodeHardwareInterface{
     
     public int ZoneId;
     
-    public NodesList neighbourZoneList,neighbourNonZoneList;
+    public NodesList neighbourZoneList;
     
     /** Creates a new instance of Node */
     public Node(int id, EnergyManagement energyManagement, PanelContext hostingPanelContext, LocationContext fieldContext, ColorProfile colorCode, SimManager simControl){
@@ -101,7 +101,6 @@ public class Node implements NodeAPI, NodeHardwareInterface{
         
         ZoneId = 0;
         neighbourZoneList = new NodesList();
-        neighbourNonZoneList = new NodesList();
     }
     
     

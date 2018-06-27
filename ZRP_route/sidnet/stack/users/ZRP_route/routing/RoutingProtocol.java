@@ -5,6 +5,7 @@
  */
 package sidnet.stack.users.ZRP_route.routing;
 
+import sidnet.stack.users.ZRP_route.ignoredpackage.PoolReceivedItem;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,6 +31,8 @@ import sidnet.core.misc.NodeEntry;
 import sidnet.core.misc.NodesList;
 import sidnet.core.misc.Reason;
 import sidnet.core.simcontrol.SimManager;
+import sidnet.stack.users.ZRP_route.app.DropperNotifyAppLayer;
+import sidnet.stack.users.ZRP_route.app.Konstanta;
 import sidnet.stack.users.ZRP_route.app.MessageDataValue;
 import sidnet.stack.users.ZRP_route.app.MessageQuery;
 import sidnet.stack.users.ZRP_route.driver.SequenceGenerator;
@@ -44,18 +47,8 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
     
     public static final byte ERROR = -1;
     public static final byte SUCCESS = 0;
-    private static SequenceGenerator seq;
-    public static Zone zone;
-    private static final boolean is_pause = true;
-    private static final boolean use_agg = true;
-    private static final boolean pool_all = true;
-    private static final String key = "zrp";
-    private static final boolean direct_send = true;
-
-    public static final long INTERVAL_TIMING_SEND = 5 * Constants.SECOND;
-    public static final long TIMING_DELAY_SEND = 300 * Constants.MILLI_SECOND;
-    
-    public static final int LIMIT_PACKET_ID_SIZE = 500;
+    private SequenceGenerator seq;
+    private Zone zone;
     
     private final Node myNode; // The SIDnet handle to the node representation 
     private final StatsCollector stats;
@@ -85,6 +78,9 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
     //anti-duplicate list
     ArrayList<String> receivedDataId = new ArrayList<String>();
     
+    //hashmap hitung maksimum retry
+    HashMap<Long, Integer> dataRetry = new HashMap<Long, Integer>();
+    
     //list dari node ini proses query apa saja
     private ArrayList<Integer> queryProcessed = new ArrayList<Integer>();
     
@@ -102,56 +98,13 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
     }
     private HashMap<Integer, DestinationSink> detailQueryProcessed = new HashMap<Integer, DestinationSink>();
     
-    /*Pool received, key hashmap "QUERYID-NODEID"
-     * contoh QUERYID = 10; NODEID = 6
-     * jadinya 10-6 (STRING tipe)
-     */
-    
-    private class poolReceivedItem {
-        public double dataValue;
-        public double maxdataValue;
-        public double mindataValue;
-        public double avgdataValue;
-        public long countdataValue;
-        public final long sequenceNumber;
-        public int queryID;
-        public int fromRegion;
-        public int procedureID;
-
-        public poolReceivedItem(double dataValue,long sequenceNumber,int queryID,int fromRegion,int procedureID) {
-            this.dataValue = dataValue;
-            this.sequenceNumber = sequenceNumber;
-            this.queryID = queryID;
-            this.fromRegion = fromRegion;
-            this.procedureID = procedureID;
-            this.maxdataValue = dataValue;
-            this.mindataValue = dataValue;
-            this.avgdataValue = dataValue;
-            this.countdataValue = 1;
-        }
-        
-        public void putAVG(double data) {
-            avgdataValue = (avgdataValue*countdataValue + data)/(countdataValue+1);
-        }
-        
-        public void putMAX(double data) {
-            maxdataValue = (maxdataValue < data) ? data : maxdataValue;
-        }
-        
-        public void putMIN(double data) {
-            mindataValue = (mindataValue > data) ? data : mindataValue;
-        }
-    }
-    
-    private Map<String, poolReceivedItem> rcvPool = new HashMap<String, poolReceivedItem>();
-    private ArrayList<poolReceivedItem> lstItemPool = new ArrayList<poolReceivedItem>();
+    private Map<String, PoolReceivedItem> rcvPool = new HashMap<String, PoolReceivedItem>();
+    private ArrayList<PoolReceivedItem> lstItemPool = new ArrayList<PoolReceivedItem>();
     
     private NCS_Location2D arrowHead = null;
     private NCS_Location2D[] arrowHead_pool = new NCS_Location2D[16];
     
     private Color[] color = new Color[16];
-    
-    private boolean tepi = false;
     
     ArrayList<NodeEntry> list = new ArrayList<NodeEntry>();
     ArrayList<NodeEntry> list2 = new ArrayList<NodeEntry>();
@@ -195,11 +148,10 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
         
         JistAPI.sleepBlock(interval);
-        
-        //zone.zone.get(myNode.ZoneId).count++;
-        zone.zone.get(myNode.ZoneId).changeCH();
 
         if (!rcvPool.isEmpty()) {
+            
+            zone.zone.get(myNode.ZoneId).changeCH();
             
             lstItemPool.clear();
             
@@ -207,41 +159,41 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
 
             while (i.hasNext()) {
                 Entry item = (Entry) i.next();
-                poolReceivedItem pri = (poolReceivedItem)item.getValue();
+                PoolReceivedItem pri = (PoolReceivedItem)item.getValue();
 
                 i.remove();
                 lstItemPool.add(pri);
             }
             
-            for (poolReceivedItem pri : lstItemPool) {
+            for (PoolReceivedItem pri : lstItemPool) {
                 long sequenceNumber = seq.getandincrement();
                 
-                MessagePoolDataValue mpdv = new MessagePoolDataValue(pri.dataValue,sequenceNumber);
+                MessagePoolDataValue mpdv = new MessagePoolDataValue();
+                mpdv.avgdataValue = pri.avgdataValue;
+                mpdv.maxdataValue = pri.maxdataValue;
+                mpdv.mindataValue = pri.mindataValue;
+                mpdv.countdataValue = pri.countdataValue;
                 mpdv.queryID = pri.queryID;
                 mpdv.sinkIP = detailQueryProcessed.get(pri.queryID).sinkIP;
                 mpdv.sinkLocation = detailQueryProcessed.get(pri.queryID).sinkLocation;
-                mpdv.producerNodeId = pri.procedureID;
                 mpdv.zone_id = myNode.ZoneId;
+                mpdv.sequenceNumber = sequenceNumber;
+                mpdv.priority = pri.priority;
 
                 ProtocolMessageWrapper pmw = new ProtocolMessageWrapper(mpdv);
                 pmw.setS_seq(sequenceNumber);
                 
-                stats.markPacketSent("DATA_"+myNode.ZoneId, sequenceNumber);
+                //stats.markPacketSent("DATA_"+myNode.ZoneId, sequenceNumber);
                 stats.markPacketSent("DATA", sequenceNumber);
-                System.out.println("create pool di "+myNode.getID()+" "+sequenceNumber);
+                stats.markPacketSent("DATA_PRI_"+mpdv.priority, sequenceNumber);
+                System.out.println("create pool di "+mpdv.priority+" "+myNode.getID()+" "+sequenceNumber);
 
                 NetMessage.Ip nmip = new NetMessage.Ip(pmw, myNode.getIP(), detailQueryProcessed.get(mpdv.queryID).sinkIP, Constants.NET_PROTOCOL_INDEX_1, Constants.NET_PRIORITY_NORMAL, (byte)100);
                 
-                //if (loncat) sendToLinkLayer(nmip, nextHop.getIp());
-                //else 
-                
-                JistAPI.sleep(TIMING_DELAY_SEND);
+                JistAPI.sleep(Konstanta.TIMING_DELAY_SEND);
                 
                 handleMessagePool(nmip);
             }
-            //nodeDiscover();
-            
-            //handleChangeCH(myNode.getNCS_Location2D(),myNode.getEnergyManagement().getBattery().getPercentageEnergyLevel(),null);
         }
         
         ((RouteInterface.ZRP_Route)self).timingSend(interval);
@@ -263,7 +215,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         		  .getBattery()
         		  .getPercentageEnergyLevel()< 2) {
             System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
-            if (is_pause) myNode.getSimControl().setSpeed(SimManager.PAUSED);
+            if (Konstanta.IS_PAUSE) myNode.getSimControl().setSpeed(SimManager.PAUSED);
             return;
         }
         
@@ -309,11 +261,13 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
                         +((MessagePoolDataValue) sndMsg.getPayload()).producerNodeId+" "
                         +myNode.ZoneId+" "+myNode.getID());*/
                 
-                if (use_agg) {
+                if (Konstanta.USE_AGG) {
                     MessagePoolDataValue temp = (MessagePoolDataValue) sndMsg.getPayload();
-                    stats.markPacketReceived("DATA", temp.sequenceNumber);
-                    stats.markPacketReceived("DATA_"+temp.zone_id, temp.sequenceNumber);
-                    System.out.println("receive pool di "+myNode.getID()+" "+temp.sequenceNumber);
+                    stats.markPacketReceived("DATA", sndMsg.getS_seq());
+                    stats.markPacketReceived("DATA_PRI_"+temp.priority, sndMsg.getS_seq());
+                    //stats.markPacketReceived("DATA_"+temp.zone_id, sndMsg.getS_seq());
+                    System.out.println("receive pool di "+myNode.getID()+" "+sndMsg.getS_seq());
+                    System.out.println("receive pool di "+temp.priority+" "+myNode.getID()+" "+sndMsg.getS_seq());
                     
                     poolHandleMessagePoolDataValue(temp);
                 }
@@ -371,13 +325,13 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
                 nodeDiscover();
                 
                 //start timing send
-                ((RouteInterface.ZRP_Route)self).timingSend(this.INTERVAL_TIMING_SEND);
+                ((RouteInterface.ZRP_Route)self).timingSend(Konstanta.INTERVAL_TIMING_SEND);
 
                 this.queryProcessed.add(query.getQuery().getID());
                 DestinationSink ds = new DestinationSink(query.getQuery().getSinkIP(), query.getQuery().getSinkNCSLocation2D(), query.getQuery().getRegion().getID());
                 this.detailQueryProcessed.put(query.getQuery().getID(), ds);
 
-                //if (myNode.ZoneId == 1) {
+                //if (myNode.getID() == 22) {
                 //setelah di broadcast, query diteruskan ke app layer
                 sendToAppLayer(query, null);
                 //}
@@ -394,7 +348,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
     
     private NodeEntry findNextHop(NCS_Location2D loc,NetAddress ip,boolean intra,MessageDataValue msg) {
         
-        if (direct_send && msg != null) {
+        if (Konstanta.DIRECT_SEND && msg != null) {
             NodeEntry sink = myNode.neighboursList.get(detailQueryProcessed.get(msg.queryId).sinkIP);
             if (sink != null) return sink;
         }
@@ -522,10 +476,10 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         }*/
 
         //cari cluster head
-        ip_ncsloc myCH = getMyClusterHead(msg);
+        NodeEntry myCH = getMyClusterHead(msg);
         
-        NCS_Location2D CH_loc = myCH.getLoc();
-        NetAddress CH_ip = myCH.getIp();
+        NCS_Location2D CH_loc = myCH.getNCS_Location2D();
+        NetAddress CH_ip = myCH.ip;
         
         if (msg.CH_ip == null) {
             msg.CH_ip = CH_ip;
@@ -537,7 +491,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         }
         
         if (arrowHead != null) {
-            //topologyGUI.removeLink(myNode.getNCS_Location2D(),arrowHead, 1);
+            topologyGUI.removeLink(myNode.getNCS_Location2D(),arrowHead, 1);
         }
         
         //tambahkan informasi region
@@ -548,8 +502,9 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
             //System.out.println("Di node "+myNode.getID()+" pesan dari "+msg.producerNodeId+" CH diri sendiri "+CH_ip+" pool di "+myNode.getIP());
             
             stats.markPacketReceived("DATA", msg.sequenceNumber);
-            stats.markPacketReceived("DATA_"+msg.zone_id, msg.sequenceNumber);
-            System.out.println("receive value di "+myNode.getID()+" "+msg.sequenceNumber);
+            stats.markPacketReceived("DATA_PRI_"+msg.priority, msg.sequenceNumber);
+            //stats.markPacketReceived("DATA_"+msg.zone_id, msg.sequenceNumber);
+            System.out.println("receive value di "+msg.priority+" "+myNode.getID()+" "+msg.sequenceNumber);
             
             poolHandleMessageDataValue(msg);
         }
@@ -557,7 +512,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
             //cari next hop;
             NodeEntry nextHop = findNextHop(CH_loc,null,true,msg);
             
-            System.out.println("Di node "+myNode.getID()+" pesan dari "+msg.producerNodeId+" CH node lain "+CH_ip+" kirim ke "+nextHop.ip);
+            //System.out.println("Di node "+myNode.getID()+" pesan dari "+msg.producerNodeId+" CH node lain "+CH_ip+" kirim ke "+nextHop.ip);
             ProtocolMessageWrapper pmw = new ProtocolMessageWrapper(msg);
             pmw.setS_seq(msg.sequenceNumber);
             NetMessage.Ip nmip = new NetMessage.Ip(pmw, myNode.getIP(), detailQueryProcessed.get(msg.queryId).sinkIP, Constants.NET_PROTOCOL_INDEX_1, Constants.NET_PRIORITY_NORMAL, (byte)100);
@@ -570,18 +525,17 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
     
     private void poolHandleMessagePoolDataValue(MessagePoolDataValue msg) {
         //buat keyHashMap
-        String hashMapKey = String.valueOf(msg.zone_id);
+        String hashMapKey = msg.priority+"-"+String.valueOf(msg.zone_id);
 
         //cek jika sudah terdapat
         if (rcvPool.containsKey(hashMapKey)) {
             //System.out.println(myNode.getID()+" duplicate pool "+ msg.sequenceNumber+" "+rcvPool.size());
             
-            if (use_agg) {
-                poolReceivedItem item_pool = rcvPool.get(hashMapKey);
-                item_pool.putAVG(msg.dataValue);
-                item_pool.putMAX(msg.dataValue);
-                item_pool.putMIN(msg.dataValue);
-                item_pool.countdataValue++;
+            if (Konstanta.USE_AGG) {
+                PoolReceivedItem item_pool = rcvPool.get(hashMapKey);
+                item_pool.putAVG(msg.avgdataValue,msg.countdataValue);
+                item_pool.putMAX(msg.maxdataValue);
+                item_pool.putMIN(msg.mindataValue);
             }
         }
         else {
@@ -590,7 +544,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
 
             //System.out.println("Node:" + myNode.getID() + " create new hashmapkey:" + hashMapKey);
 
-            poolReceivedItem priNew = new poolReceivedItem(msg.dataValue,msg.sequenceNumber,1,msg.fromRegion,msg.producerNodeId);
+            PoolReceivedItem priNew = new PoolReceivedItem(msg.maxdataValue,msg.mindataValue,msg.avgdataValue,msg.countdataValue,msg.queryID,msg.priority);
             rcvPool.put(hashMapKey, priNew);
         }
     }
@@ -598,27 +552,19 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
     private void poolHandleMessageDataValue(MessageDataValue msg) {
         //buat keyHashMap
         String hashMapKey;
-        if (pool_all) hashMapKey = key;
-        else if (use_agg) hashMapKey = String.valueOf(msg.zone_id);
+        if (Konstanta.POOL_ALL) hashMapKey = Konstanta.KEY;
+        else if (Konstanta.USE_AGG) hashMapKey = String.valueOf(msg.zone_id);
         else hashMapKey = String.valueOf(msg.sequenceNumber);
 
         //cek jika sudah terdapat
         if (rcvPool.containsKey(hashMapKey)) {
             //System.out.println(myNode.getID()+" duplicate pool "+ msg.sequenceNumber+" "+rcvPool.size());
             
-            if (pool_all) {
-                poolReceivedItem item_pool = rcvPool.get(hashMapKey);
-                item_pool.putAVG(msg.dataValue);
-                item_pool.putMAX(msg.dataValue);
-                item_pool.putMIN(msg.dataValue);
-                item_pool.countdataValue++;
-            }
-            else if (use_agg) {
-                poolReceivedItem item_pool = rcvPool.get(hashMapKey);
-                item_pool.putAVG(msg.dataValue);
-                item_pool.putMAX(msg.dataValue);
-                item_pool.putMIN(msg.dataValue);
-                item_pool.countdataValue++;
+            if (Konstanta.POOL_ALL || Konstanta.USE_AGG) {
+                PoolReceivedItem item_pool = rcvPool.get(hashMapKey);
+                item_pool.putAVG(msg.dataValue,msg.count);
+                item_pool.putMAX(msg.maxdataValue);
+                item_pool.putMIN(msg.mindataValue);
             }
         }
         else {
@@ -627,42 +573,22 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
 
             //System.out.println("Node:" + myNode.getID() + " create new hashmapkey:" + hashMapKey);
 
-            poolReceivedItem priNew = new poolReceivedItem(msg.dataValue,msg.sequenceNumber,msg.queryId,msg.fromRegion,msg.producerNodeId);
+            PoolReceivedItem priNew = new PoolReceivedItem(msg.maxdataValue,msg.mindataValue,msg.dataValue,msg.count,msg.queryId,msg.priority);
             rcvPool.put(hashMapKey, priNew);
         }
     }
     
-    private class ip_ncsloc {
-        private NetAddress ip;
-        private NCS_Location2D loc;
-
-        public ip_ncsloc(NetAddress ip, NCS_Location2D loc) {
-            this.ip = ip;
-            this.loc = loc;
-        }
-
-        public NetAddress getIp() {
-            return ip;
-        }
-
-        public NCS_Location2D getLoc() {
-            return loc;
-        }
-    }
-    
-    private ip_ncsloc getMyClusterHead(MessageDataValue msg) {
+    private NodeEntry getMyClusterHead(MessageDataValue msg) {
         //LinkedList<NodeEntry> pilihanCH = zone.zone.get(myNode.ZoneId).getZone_item().getAsLinkedList();
         
         //NodeEntry CH = pilihanCH.get((int) (zone.zone.get(myNode.ZoneId).count%pilihanCH.size()));
         
-        if (direct_send) {
+        if (Konstanta.DIRECT_SEND) {
             NodeEntry sink = myNode.neighboursList.get(detailQueryProcessed.get(msg.queryId).sinkIP);
-            if (sink != null) return new ip_ncsloc(sink.ip,sink.getNCS_Location2D());
+            if (sink != null) return sink;
         }
         
-        NodeEntry CH = zone.zone.get(myNode.ZoneId).CH;
-        
-        return new ip_ncsloc(CH.ip,CH.getNCS_Location2D());
+        return zone.zone.get(myNode.ZoneId).CH;
     }
 
     public void receive(Message msg, NetAddress src, MacAddress lastHop, byte macId, NetAddress dst, byte priority, byte ttl) {
@@ -672,7 +598,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         		  .getBattery()
         		  .getPercentageEnergyLevel()< 2) {
             System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
-            if (is_pause) myNode.getSimControl().setSpeed(SimManager.PAUSED);
+            if (Konstanta.IS_PAUSE) myNode.getSimControl().setSpeed(SimManager.PAUSED);
             return;
         }
         
@@ -759,6 +685,19 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
             sendToLinkLayer(nmip, NetAddress.ANY);
         }*/
     }
+    
+    private NetAddress convertMacToIP(MacAddress macAddr) {
+        //ambil list tetangga yang dibuat oleh heartbeat
+        LinkedList<NodeEntry> neighboursLinkedList
+        	= myNode.neighboursList.getAsLinkedList();
+
+        for(NodeEntry nodeEntry: neighboursLinkedList) {
+            if (nodeEntry.mac.hashCode() == macAddr.hashCode())
+                return nodeEntry.ip;
+        }
+
+        return null;
+    }
 
     @Override
     public void dropNotify(Message msg, MacAddress nextHopMac, Reason reason) {
@@ -777,13 +716,62 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
                 //throw new RuntimeException("Net Queue Full");
             }
         }
-        if (reason == Reason.UNDELIVERABLE || reason == Reason.MAC_BUSY)
+        if (reason == Reason.UNDELIVERABLE || reason == Reason.MAC_BUSY) {
+            ProtocolMessageWrapper xMsg = (ProtocolMessageWrapper)((NetMessage.Ip)msg).getPayload();
             System.out.println("WARNING: Cannot relay packet to the destination node " + nextHopMac);
+            
+            //cek apakah batas retry masih bisa atau tidak
+            if (isThisRetryAgain(xMsg.getS_seq())) {
+
+                increaseThisRetry(xMsg.getS_seq());
+                System.out.println("NODE:" + myNode.getID() + " Retrying(" + dataRetry.get(xMsg.getS_seq()) + ") PID:" + xMsg.getS_seq() + " send to node " + nextHopMac);
+
+                //sleep before retry
+                JistAPI.sleepBlock(Konstanta.INTERVAL_WAITING_BEFORE_RETRY);
+
+                NetMessage.Ip nmip = (NetMessage.Ip) msg;
+
+                if (xMsg.getPayload() instanceof MessageDataValue) {
+                    //beritahu app layer agar menambah pool limit
+                    MessageDataValue tmp_msg = (MessageDataValue) xMsg.getPayload();
+                    DropperNotifyAppLayer dnal = new DropperNotifyAppLayer(false, true,tmp_msg.priority);
+                    sendToAppLayer(dnal, myNode.getIP());
+                }
+                else if (xMsg.getPayload() instanceof MessagePoolDataValue) {
+                    this.increment_TIMING_SEND();
+                }
+                NetAddress retryTo = convertMacToIP(nextHopMac);
+                if (retryTo != null)
+                    sendToLinkLayer(nmip, retryTo);
+                else {
+                    
+                }
+            }
+            else {
+                System.out.println("NODE:" + myNode.getID() + " Drop packet " + xMsg.getS_seq() + " after retry(" + dataRetry.get(xMsg.getS_seq()) + ") to node " + nextHopMac);
+                deleteThisRetry(xMsg.getS_seq());
+                myNode.neighboursList.remove(nextHopMac.hashCode());
+            }
+        }
+        
+        if (reason == Reason.PACKET_DELIVERED) {
+            ProtocolMessageWrapper xMsg = (ProtocolMessageWrapper)((NetMessage.Ip)msg).getPayload();
+            if (xMsg.getPayload() instanceof MessageDataValue) {
+                //beritahu app layer agar mengurangi pool limit
+                MessageDataValue tmp_msg = (MessageDataValue) xMsg.getPayload();
+                DropperNotifyAppLayer dnal = new DropperNotifyAppLayer(true, false,tmp_msg.priority);
+                sendToAppLayer(dnal, myNode.getIP());
+            }
+            else if (xMsg.getPayload() instanceof MessagePoolDataValue) {
+                this.decrement_TIMING_SEND();
+            }
+            deleteThisRetry(xMsg.getS_seq());
+        }
         
         // wait 5 seconds and try again
-        JistAPI.sleepBlock(500 * Constants.MILLI_SECOND);
+        /*JistAPI.sleepBlock(500 * Constants.MILLI_SECOND);
         netEntity.send((NetMessage.Ip)msg, Constants.NET_INTERFACE_DEFAULT, nextHopMac);
-        this.send((NetMessage)msg);
+        this.send((NetMessage)msg);*/
     }
 
     public void start() {
@@ -811,7 +799,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         		  .getBattery()
         		  .getPercentageEnergyLevel()< 2) {
             System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
-            if (is_pause) myNode.getSimControl().setSpeed(SimManager.PAUSED);
+            if (Konstanta.IS_PAUSE) myNode.getSimControl().setSpeed(SimManager.PAUSED);
             return;
         }
 
@@ -825,7 +813,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         		  .getBattery()
         		  .getPercentageEnergyLevel()< 2) {
             System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
-            if (is_pause) myNode.getSimControl().setSpeed(SimManager.PAUSED);
+            if (Konstanta.IS_PAUSE) myNode.getSimControl().setSpeed(SimManager.PAUSED);
             return 0;
         }
      
@@ -837,10 +825,23 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
 //        if (myNode.getID() == 164)
 //            System.out.println("route packet to " + nextHopDestIP);
 
+        ProtocolMessageWrapper pmw = (ProtocolMessageWrapper)ipMsg.getPayload();
+        NetMessage.Ip copyMsg = new NetMessage.Ip(pmw,
+			       ((NetMessage.Ip)ipMsg).getSrc(),
+                               ((NetMessage.Ip)ipMsg).getDst(),
+                               ((NetMessage.Ip)ipMsg).getProtocol(),
+                               ((NetMessage.Ip)ipMsg).getPriority(),
+                               ((NetMessage.Ip)ipMsg).getTTL(),
+                               ((NetMessage.Ip)ipMsg).getId(),
+                               ((NetMessage.Ip)ipMsg).getFragOffset());
+        ipMsg = null;
+
         if (nextHopDestIP == null)
             System.err.println("NULL nextHopDestIP");
-        if (nextHopDestIP == NetAddress.ANY)
-            netEntity.send(ipMsg, Constants.NET_INTERFACE_DEFAULT, MacAddress.ANY);
+        if (nextHopDestIP == NetAddress.ANY) {
+            netEntity.send(copyMsg, Constants.NET_INTERFACE_DEFAULT, MacAddress.ANY);
+            registerIDToHashmapRetry(pmw.getS_seq());
+        }
         else
         {
             NodeEntry nodeEntry = myNode.neighboursList.get(nextHopDestIP);
@@ -859,7 +860,8 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
                  return this.ERROR;
             }
             myNode.getNodeGUI().colorCode.mark(colorProfile, ColorProfileZRP.TRANSMIT, 2);
-            netEntity.send(ipMsg, Constants.NET_INTERFACE_DEFAULT, macAddress);
+            netEntity.send(copyMsg, Constants.NET_INTERFACE_DEFAULT, macAddress);
+            registerIDToHashmapRetry(pmw.getS_seq());
         }
         
         return this.SUCCESS;
@@ -870,9 +872,41 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         return self;
     }
     
+    private void increaseThisRetry(long s_Seq) {
+        int x = dataRetry.get(s_Seq) + 1;
+        dataRetry.put(s_Seq, x);
+    }
+
+    private void deleteThisRetry(long s_Seq) {
+        dataRetry.remove(s_Seq);
+    }
+
+    private boolean isThisRetryAgain(long s_Seq) {
+        if (dataRetry.containsKey(s_Seq)) {
+            return dataRetry.get(s_Seq) < Konstanta.MAXIMUM_RETRY_SEND_MESSAGE;
+        } else {
+            System.out.println("Packet " + s_Seq + " not registered, dropped!");
+            return false;
+        }
+    }
+
+    private void registerIDToHashmapRetry(long s_Seq) {
+        if (!dataRetry.containsKey(s_Seq)) {
+            dataRetry.put(s_Seq, 0);
+        }
+    }
+    
     private void memoryControllerPacketID() {
-        if (this.receivedDataId.size() >= this.LIMIT_PACKET_ID_SIZE) {
+        if (this.receivedDataId.size() >= Konstanta.LIMIT_PACKET_ID_SIZE) {
             this.receivedDataId.remove(0);
         }
+    }
+    
+    private void increment_TIMING_SEND() {
+        Konstanta.INTERVAL_TIMING_SEND+= (1 * Constants.SECOND);
+    }
+    
+    private void decrement_TIMING_SEND() {
+        if (Konstanta.INTERVAL_TIMING_SEND > 1 * Constants.SECOND) Konstanta.INTERVAL_TIMING_SEND-= (1 * Constants.SECOND);
     }
 }

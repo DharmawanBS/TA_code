@@ -6,7 +6,6 @@
 package sidnet.stack.users.ZRP_route.driver;
 
 import java.awt.Color;
-import java.util.ArrayList;
 import jist.runtime.JistAPI;
 import jist.swans.Constants;
 import jist.swans.field.Fading;
@@ -54,6 +53,7 @@ import sidnet.utilityviews.statscollector.StatsCollector;
 import sidnet.utilityviews.statscollector.StatEntry_EnergyLeftPercentage;
 
 import sidnet.stack.users.ZRP_route.app.AppLayer;
+import sidnet.stack.users.ZRP_route.app.Konstanta;
 import sidnet.stack.users.ZRP_route.colorprofile.ColorProfileZRP;
 import sidnet.stack.users.ZRP_route.routing.RoutingProtocol;
 import sidnet.utilityviews.statscollector.StatEntry_PacketDeliveryLatency;
@@ -66,9 +66,7 @@ import sidnet.utilityviews.statscollector.StatEntry_PacketSentContor;
  * @author ZRP
  */
 public class ZRPDriver {
-    public static int ZONE_COUNT = 16;
-    public static Zone zone = new Zone(ZONE_COUNT);
-    public static double THRESHOLD = 15.0;
+    public static Zone zone = new Zone(Konstanta.ZONE_COUNT);
     
     public static TopologyGUI topologyGUI = new TopologyGUI();
     public static int nodes, fieldLength, time;
@@ -77,7 +75,7 @@ public class ZRPDriver {
     
     /** Define the battery-type for the nodes 75mAh should give enough juice for 24-48h */
     public static Battery battery = new IdealBattery(BatteryUtils.mAhToMJ(75, 3), 3);
-    public static Battery battery_sink = new IdealBattery(BatteryUtils.mAhToMJ(9999999, 3), 3);
+    public static Battery battery_sink = new IdealBattery(BatteryUtils.mAhToMJ(Konstanta.BATTERY_SINK, 3), 3);
     
     /** Define the power-consumption characteristics of the nodes, based on Mica Mote MPR500CA */
     public static EnergyConsumptionParameters eCostParam = new EnergyConsumptionParameters(
@@ -168,13 +166,13 @@ public class ZRPDriver {
     
     //  for node
     RadioInfo.RadioInfoShared radioInfoShared = RadioInfo.createShared(
-        Constants.FREQUENCY_DEFAULT, 4000 /* BANDWIDTH bps - it will be overloaded when using 802_15_4  */,
+        Constants.FREQUENCY_DEFAULT, Konstanta.BANDWIDTH_SRC /* BANDWIDTH bps - it will be overloaded when using 802_15_4  */,
         -12 /* dBm for Mica Z */, Constants.GAIN_DEFAULT,
         Util.fromDB(Constants.SENSITIVITY_DEFAULT), Util.fromDB(Constants.THRESHOLD_DEFAULT),
         Constants.TEMPERATURE_DEFAULT, Constants.TEMPERATURE_FACTOR_DEFAULT, Constants.AMBIENT_NOISE_DEFAULT);
     //  for sink node
     RadioInfo.RadioInfoShared radioInfoShared_sink = RadioInfo.createShared(
-        Constants.FREQUENCY_DEFAULT, 400000 /* BANDWIDTH bps - it will be overloaded when using 802_15_4  */,
+        Constants.FREQUENCY_DEFAULT, Konstanta.BANDWIDTH_SINK /* BANDWIDTH bps - it will be overloaded when using 802_15_4  */,
         -12 /* dBm for Mica Z */, Constants.GAIN_DEFAULT,
         Util.fromDB(Constants.SENSITIVITY_DEFAULT), Util.fromDB(Constants.THRESHOLD_DEFAULT),
         Constants.TEMPERATURE_DEFAULT, Constants.TEMPERATURE_FACTOR_DEFAULT, Constants.AMBIENT_NOISE_DEFAULT);
@@ -217,30 +215,30 @@ public class ZRPDriver {
     
     /*StatEntry_GeneralPurposeContor[] createdCounter = new StatEntry_GeneralPurposeContor[ZONE_COUNT];
     StatEntry_GeneralPurposeContor[] receivedCounter = new StatEntry_GeneralPurposeContor[ZONE_COUNT];*/
-    for (int i=0;i<ZONE_COUNT;i++) {
+    /*for (int i=0;i<Konstanta.ZONE_COUNT;i++) {
         statistics.monitor(new StatEntry_PacketSentContor("DATA_"+i));
         statistics.monitor(new StatEntry_PacketReceivedContor("DATA_"+i));
         statistics.monitor(new StatEntry_PacketReceivedPercentage("DATA_"+i));
         statistics.monitor(new StatEntry_PacketDeliveryLatency("DATA_"+i, StatEntry_PacketDeliveryLatency.MODE.MAX));
-        /*createdCounter[i] = new StatEntry_GeneralPurposeContor("AV_Created_"+i);
-        receivedCounter[i] = new StatEntry_GeneralPurposeContor("AV_Received_"+i);
-        
-        statistics.monitor(createdCounter[i]);
-        statistics.monitor(receivedCounter[i]);
-        
-        statistics.monitor(new StatEntry_PacketDeliveryRatio("AV_RatioDelivery_"+i, createdCounter[i], receivedCounter[i]));*/
-    }
+    }*/
+    
+    statistics.monitor(new StatEntry_PacketSentContor("DATA_PRI_1"));
+    statistics.monitor(new StatEntry_PacketReceivedContor("DATA_PRI_1"));
+    statistics.monitor(new StatEntry_PacketReceivedPercentage("DATA_PRI_1"));
+    statistics.monitor(new StatEntry_PacketDeliveryLatency("DATA_PRI_1", StatEntry_PacketDeliveryLatency.MODE.MAX));
+    
+    statistics.monitor(new StatEntry_PacketSentContor("DATA_PRI_2"));
+    statistics.monitor(new StatEntry_PacketReceivedContor("DATA_PRI_2"));
+    statistics.monitor(new StatEntry_PacketReceivedPercentage("DATA_PRI_2"));
+    statistics.monitor(new StatEntry_PacketDeliveryLatency("DATA_PRI_2", StatEntry_PacketDeliveryLatency.MODE.MAX));
     
     /*statistics.monitor(createdCounter_All);
     statistics.monitor(receivedCounter_All);
     statistics.monitor(new StatEntry_PacketDeliveryRatio("AV_RatioDelivery", createdCounter_All, receivedCounter_All));*/
     
     /** Create the sensor nodes (each at a time). Initialize each node's data and network stack */
-    
-    ArrayList<Location2D> horizontal = listGaris(length,true);
-    ArrayList<Location2D> vertical = listGaris(length,false);
-    
-    int sink = 36;
+        
+    int sink = Konstanta.SINK;
     //int sink = (int) (Math.random() * nodes + 0);
       System.out.println("sink = "+sink);
     for(int i=0; i<nodes; i++) {
@@ -277,7 +275,7 @@ public class ZRPDriver {
         
         int zone_id = generate_zone_id(myNode[i].getLocation2D(),
                         length,
-                        (int) Math.ceil(Math.sqrt(ZONE_COUNT)));
+                        (int) Math.ceil(Math.sqrt(Konstanta.ZONE_COUNT)));
         
         myNode[i].setZoneId(zone_id);
         NodeEntry newEntry = new NodeEntry( null,
@@ -333,39 +331,6 @@ public class ZRPDriver {
       double y = loc.getY();
       
       return (int) (Math.floor(count*x/length) + count*(Math.floor(count*y/length)));
-  }
-  
-  private static ArrayList<Location2D> listGaris(int length,boolean is_horizontal) {
-      ArrayList<Location2D> garis = new ArrayList<Location2D>();
-      int count = (int) (Math.ceil(Math.sqrt(ZONE_COUNT)));
-      int x,y;
-      for(int i=0;i<=count;i++) {
-          if(is_horizontal) {
-              x = 0;
-              y = length*i/count;
-          }
-          else {
-              x = length*i/count;
-              y = 0;
-          }
-          garis.add(new Location2D(x,y));
-      }
-      return garis;
-  }
-  
-  private static boolean pinggir(Location2D loc,int zone_id,ArrayList<Location2D> horizontal,ArrayList<Location2D> vertical) {
-      int count = (int) (Math.ceil(Math.sqrt(ZONE_COUNT)));
-      int x = zone_id % count;  //bandingkan dengan garis vertikal
-      int y = zone_id / count;  //bandingkan dengan garis horizontal
-      
-      double ver1 = vertical.get(x).getX();
-      double ver2 = vertical.get(x+1).getX();
-      
-      double hor1 = horizontal.get(y).getY();
-      double hor2 = horizontal.get(y+1).getY();
-      
-      //System.out.println(""+Math.abs(loc.getX() - ver1)+" "+Math.abs(loc.getX() - ver2)+" "+Math.abs(loc.getY() - hor1)+" "+Math.abs(loc.getY() - hor2));
-      return (Math.abs(loc.getX() - ver1) < THRESHOLD || Math.abs(loc.getX() - ver2) < THRESHOLD || Math.abs(loc.getY() - hor1) < THRESHOLD || Math.abs(loc.getY() - hor2) < THRESHOLD);
   }
   
    /**

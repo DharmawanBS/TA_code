@@ -205,6 +205,7 @@ public final class Rewriter extends ClassLoader
     "org.apache.xmlbeans.",
     "javax.xml.",
     "org.xml.sax.",     
+    "sidnet.stack.users.ZRP_route.ignoredpackage",
 
 
 

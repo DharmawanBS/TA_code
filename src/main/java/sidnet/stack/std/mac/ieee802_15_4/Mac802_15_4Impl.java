@@ -5265,6 +5265,9 @@ TimerCallbackInterface { /* extends Mac */
             JistAPI.sleepBlock(1 * Constants.MILLI_SECOND);
             reset();
             netEntity.pump(netId);
+            
+            //modifikasi lempar laporan sukses ke routing layer diteruskan ke app layer
+            netEntity.dropNotify(p.getPayload(), new MacAddress(p.HDR_CMN().next_hop_), Reason.PACKET_DELIVERED);
 		}
 		else
 			assert(false);

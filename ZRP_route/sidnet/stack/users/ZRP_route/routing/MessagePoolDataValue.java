@@ -15,13 +15,13 @@ import sidnet.core.misc.NCS_Location2D;
  */
 public class MessagePoolDataValue implements Message {
 
-    public final double dataValue;
+    public double avgdataValue;
+    public double maxdataValue;
+    public double mindataValue;
+    public long countdataValue;
+    public long sequenceNumber;
     
     public int queryID;
-    
-    public final long sequenceNumber;
-
-    public int fromRegion;
     
     public int producerNodeId;
 
@@ -30,9 +30,10 @@ public class MessagePoolDataValue implements Message {
     
     public int zone_id;
     
-    public MessagePoolDataValue(double dataValue,long sequenceNumber) {
-        this.dataValue = dataValue;
-        this.sequenceNumber = sequenceNumber;
+    public int priority;
+    
+    public MessagePoolDataValue() {
+        
     }
     
     /** {@inheritDoc} */

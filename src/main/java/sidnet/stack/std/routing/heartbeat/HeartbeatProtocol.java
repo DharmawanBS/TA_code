@@ -99,7 +99,7 @@ public class HeartbeatProtocol implements RouteInterface.HeartbeatProtocol{
         if (myNode.getEnergyManagement().getBattery().getPercentageEnergyLevel() < 5 && !unregistered)
         {
             unregistered = true;
-            MessageHeartbeat messageHeartbeat = new MessageHeartbeat(MessageHeartbeat.UNREGISTER,myNode.ZoneId);
+            MessageHeartbeat messageHeartbeat = new MessageHeartbeat(MessageHeartbeat.UNREGISTER);
             myNode.getNodeGUI().colorCode.mark(new ColorProfileGeneric(), ColorProfileGeneric.TRANSMIT, 200);
             JistAPI.sleepBlock(Constants.random.nextInt(100) * 100 * Constants.MILLI_SECOND); 
             netEntity.send(messageHeartbeat, NetAddress.ANY, Constants.NET_PROTOCOL_HEARTBEAT, Constants.NET_PRIORITY_NORMAL, (byte)100);  // TTL 100'
@@ -143,15 +143,6 @@ public class HeartbeatProtocol implements RouteInterface.HeartbeatProtocol{
         else {
             if (!myNode.neighboursList.contains(lastHop)) {
                 myNode.neighboursList.add(src, newEntry);
-            }
-            int zone = ((MessageHeartbeat)msg).zone_id;
-            if (zone != -1) {
-                if (zone == myNode.ZoneId) {
-                    myNode.neighbourZoneList.add(src, newEntry);
-                }
-                else {
-                    myNode.neighbourNonZoneList.add(src, newEntry);
-                }
             }
         }
         myNode.getNodeGUI().colorCode.mark(new ColorProfileGeneric(), ColorProfileGeneric.RECEIVE, 200);  
