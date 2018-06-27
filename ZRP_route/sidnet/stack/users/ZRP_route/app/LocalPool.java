@@ -43,7 +43,9 @@ public class LocalPool {
     }
 
     public void putValue(double Value,int queryID) {
-        int priority = getPriority(Value);
+        int priority;
+        if (Konstanta.USE_PRIORITY) priority = getPriority(Value);
+        else priority = 2;
         
         switch (priority) {
             case 1:
@@ -75,6 +77,17 @@ public class LocalPool {
                 return (data_1.size() == sizeLimit_1);
             case 2:
                 return (data_2.size() == sizeLimit_2);
+            default:
+                return false;
+        }
+    }
+    
+    public boolean isEmpty(int priority) {
+        switch (priority) {
+            case 1:
+                return (data_1.size() == 0);
+            case 2:
+                return (data_2.size() == 0);
             default:
                 return false;
         }

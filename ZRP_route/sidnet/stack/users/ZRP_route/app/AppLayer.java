@@ -202,17 +202,30 @@ public class AppLayer implements AppInterface, CallbackInterface {
 
             myNode.getNodeGUI().colorCode.mark(colorProfileGeneric,ColorProfileGeneric.SENSE, 5);
             
-            if (aap.isPoolFull(1)) {
-                send_message(1,queryId,sequenceNumber,zone,sinkLocation,sinkAddress);
-                
+            if (Konstanta.USE_PRIORITY) {
+                if (aap.isPoolFull(1)) {
+                    send_message(1,queryId,sequenceNumber,zone,sinkLocation,sinkAddress);
+
+                    if (aap.isPoolFull(2)) {
+                        JistAPI.sleepBlock(Konstanta.TIMING_DELAY_SEND_PRI);
+                    }
+                }
                 if (aap.isPoolFull(2)) {
-                    JistAPI.sleepBlock(Konstanta.TIMING_DELAY_SEND_PRI);
+                    send_message(2,queryId,sequenceNumber,zone,sinkLocation,sinkAddress);
                 }
             }
-            if (aap.isPoolFull(2)) {
-                send_message(2,queryId,sequenceNumber,zone,sinkLocation,sinkAddress);
-            }
 
+            else if (Konstanta.USE_POOL) {
+                if (aap.isPoolFull(2)) {
+                    send_message(2,queryId,sequenceNumber,zone,sinkLocation,sinkAddress);
+                }
+            }
+            
+            else {
+                if ( ! aap.isEmpty(2)) {
+                    send_message(2,queryId,sequenceNumber,zone,sinkLocation,sinkAddress);
+                }
+            }
             //if (this.create % 5 == 0)
             //changeCH();
            
@@ -239,6 +252,10 @@ public class AppLayer implements AppInterface, CallbackInterface {
            }
            else {
                System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
+               myNode.getNodeGUI()
+                   .getTerminal()
+                   .appendConsoleText(myNode.getNodeGUI().localTerminalDataSet,
+                                          "Mati " +myNode.getID() + " | time: " + JistAPI.getTime());
                if (Konstanta.IS_PAUSE) myNode.getSimControl().setSpeed(SimManager.PAUSED);
                return;
            }
@@ -299,19 +316,23 @@ public class AppLayer implements AppInterface, CallbackInterface {
         //System.out.println("receive app_layer");
         if (myNode.getEnergyManagement().getBattery().getPercentageEnergyLevel() < 5) {
             System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
+            myNode.getNodeGUI()
+                   .getTerminal()
+                   .appendConsoleText(myNode.getNodeGUI().localTerminalDataSet,
+                                          "Mati " +myNode.getID() + " | time: " + JistAPI.getTime());
             if (Konstanta.IS_PAUSE) myNode.getSimControl().setSpeed(SimManager.PAUSED);
             return;
         }
         
         //stats.incrementValue("AV_Received", 1);
         
-        if (msg instanceof DropperNotifyAppLayer) {
-            DropperNotifyAppLayer dnal = (DropperNotifyAppLayer) msg;
+        if (msg instanceof DropperNotify) {
+            DropperNotify dnal = (DropperNotify) msg;
             if (dnal.increaseWindow) {
-                aap.increasePoolSize(((DropperNotifyAppLayer) msg).priority);
+                aap.increasePoolSize(((DropperNotify) msg).priority);
             }
             if (dnal.reduceWindow) {
-                aap.reducePoolSize(((DropperNotifyAppLayer) msg).priority);
+                aap.reducePoolSize(((DropperNotify) msg).priority);
             }
         }
         
@@ -357,12 +378,12 @@ public class AppLayer implements AppInterface, CallbackInterface {
 
              // Connecting a terminal to this node, at run time,
              // allows the user to visualize the result of the posted query 
-             myNode.getNodeGUI()
+             /*myNode.getNodeGUI()
                    .getTerminal()
                    .appendConsoleText(myNode.getNodeGUI().localTerminalDataSet,
                                           "Sample #" +
                                           msgData.sequenceNumber +
-                                          " | val: " + msgData.dataValue);
+                                          " | val: " + msgData.dataValue);*/
         }
         
         // it is a data message, 

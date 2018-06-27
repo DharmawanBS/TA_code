@@ -31,7 +31,7 @@ import sidnet.core.misc.NodeEntry;
 import sidnet.core.misc.NodesList;
 import sidnet.core.misc.Reason;
 import sidnet.core.simcontrol.SimManager;
-import sidnet.stack.users.ZRP_route.app.DropperNotifyAppLayer;
+import sidnet.stack.users.ZRP_route.app.DropperNotify;
 import sidnet.stack.users.ZRP_route.app.Konstanta;
 import sidnet.stack.users.ZRP_route.app.MessageDataValue;
 import sidnet.stack.users.ZRP_route.app.MessageQuery;
@@ -106,16 +106,16 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
     
     private Color[] color = new Color[16];
     
-    ArrayList<NodeEntry> list = new ArrayList<NodeEntry>();
-    ArrayList<NodeEntry> list2 = new ArrayList<NodeEntry>();
-    
     ArrayList<NodeEntry> list_in = new ArrayList<NodeEntry>();
     ArrayList<NodeEntry> list_out = new ArrayList<NodeEntry>();
     
     /** Creates a new instance
      *
-     * @param Node    the SIDnet node handle to access 
+     * @param myNode              the SIDnet node handle to access 
      * 				  its GUI-primitives and shared environment
+     * @param stats
+     * @param seq
+     * @param zone
      */
     public RoutingProtocol(Node myNode,StatsCollector stats,SequenceGenerator seq,Zone zone) {
         this.myNode = myNode;
@@ -215,6 +215,10 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         		  .getBattery()
         		  .getPercentageEnergyLevel()< 2) {
             System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
+            myNode.getNodeGUI()
+                   .getTerminal()
+                   .appendConsoleText(myNode.getNodeGUI().localTerminalDataSet,
+                                          "Mati " +myNode.getID() + " | time: " + JistAPI.getTime());
             if (Konstanta.IS_PAUSE) myNode.getSimControl().setSpeed(SimManager.PAUSED);
             return;
         }
@@ -290,6 +294,10 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         NodeEntry next = nextList.get((int) (myNode.myZone.count%nextList.size()));*/
         
         NodeEntry next = findNextHop(mpdv.sinkLocation,mpdv.sinkIP,false,null);
+        if (next == null) {
+            System.out.println("NODE:" + myNode.getID() + " Drop packet " + mpdv.sequenceNumber + " tidak punya node tetangga");
+            return;
+        }
         
         NetMessage.Ip nmip = new NetMessage.Ip(sndMsg, myNode.getIP(), mpdv.sinkIP, Constants.NET_PROTOCOL_INDEX_1, Constants.NET_PRIORITY_NORMAL, (byte)100);
         sendToLinkLayer(nmip, next.ip);
@@ -355,12 +363,6 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         
         NodeEntry nextHop = (intra) ? findNextHop_in(loc) : findNextHop_out(loc,ip);
         
-        if (nextHop == null) {
-            String a = (intra) ? "in" : "out";
-            //System.out.println("Random "+a+" "+myNode.getID());
-            nextHop = myNode.neighboursList.getAsLinkedList().get((int) (Math.random()*myNode.neighboursList.size()));
-        }
-        
         return nextHop;
     }
     
@@ -414,22 +416,17 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         //ambil list tetangga yang dibuat oleh heartbeat
         LinkedList<NodeEntry> neighboursLinkedList = myNode.neighboursList.getAsLinkedList();
 
-        if (list.isEmpty() || list2.isEmpty()) {
-            list.clear();
-            list2.clear();
+        if (list_in.isEmpty() && list_out.isEmpty()) {
+            list_in.clear();
+            list_out.clear();
             for(NodeEntry neighbourEntry: neighboursLinkedList) {
                 //if (listTetangga.containsKey(neighbourEntry.ip)) {
                     if (neighbourEntry.getNCS_Location2D().distanceTo(loc) < distance) {
-                        list.add(neighbourEntry);
+                        list_in.add(neighbourEntry);
                     }
-                    else list2.add(neighbourEntry);
+                    else list_out.add(neighbourEntry);
                 //}
             }
-        }
-        
-        if (list_in.isEmpty() && list_out.isEmpty()) {
-            list_in = list;
-            list_out = list2;
         }
 
         double energi = -1;
@@ -511,6 +508,10 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         else {
             //cari next hop;
             NodeEntry nextHop = findNextHop(CH_loc,null,true,msg);
+            if (nextHop == null) {
+                System.out.println("NODE:" + myNode.getID() + " Drop packet " + msg.sequenceNumber + " tidak punya node tetangga");
+                return;
+            }
             
             //System.out.println("Di node "+myNode.getID()+" pesan dari "+msg.producerNodeId+" CH node lain "+CH_ip+" kirim ke "+nextHop.ip);
             ProtocolMessageWrapper pmw = new ProtocolMessageWrapper(msg);
@@ -552,15 +553,14 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
     private void poolHandleMessageDataValue(MessageDataValue msg) {
         //buat keyHashMap
         String hashMapKey;
-        if (Konstanta.POOL_ALL) hashMapKey = Konstanta.KEY;
-        else if (Konstanta.USE_AGG) hashMapKey = String.valueOf(msg.zone_id);
+        if (Konstanta.USE_AGG) hashMapKey = String.valueOf(msg.zone_id);
         else hashMapKey = String.valueOf(msg.sequenceNumber);
 
         //cek jika sudah terdapat
         if (rcvPool.containsKey(hashMapKey)) {
             //System.out.println(myNode.getID()+" duplicate pool "+ msg.sequenceNumber+" "+rcvPool.size());
             
-            if (Konstanta.POOL_ALL || Konstanta.USE_AGG) {
+            if (Konstanta.USE_AGG) {
                 PoolReceivedItem item_pool = rcvPool.get(hashMapKey);
                 item_pool.putAVG(msg.dataValue,msg.count);
                 item_pool.putMAX(msg.maxdataValue);
@@ -598,6 +598,10 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         		  .getBattery()
         		  .getPercentageEnergyLevel()< 2) {
             System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
+            myNode.getNodeGUI()
+                   .getTerminal()
+                   .appendConsoleText(myNode.getNodeGUI().localTerminalDataSet,
+                                          "Mati " +myNode.getID() + " | time: " + JistAPI.getTime());
             if (Konstanta.IS_PAUSE) myNode.getSimControl().setSpeed(SimManager.PAUSED);
             return;
         }
@@ -734,7 +738,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
                 if (xMsg.getPayload() instanceof MessageDataValue) {
                     //beritahu app layer agar menambah pool limit
                     MessageDataValue tmp_msg = (MessageDataValue) xMsg.getPayload();
-                    DropperNotifyAppLayer dnal = new DropperNotifyAppLayer(false, true,tmp_msg.priority);
+                    DropperNotify dnal = new DropperNotify(false, true,tmp_msg.priority);
                     sendToAppLayer(dnal, myNode.getIP());
                 }
                 else if (xMsg.getPayload() instanceof MessagePoolDataValue) {
@@ -759,7 +763,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
             if (xMsg.getPayload() instanceof MessageDataValue) {
                 //beritahu app layer agar mengurangi pool limit
                 MessageDataValue tmp_msg = (MessageDataValue) xMsg.getPayload();
-                DropperNotifyAppLayer dnal = new DropperNotifyAppLayer(true, false,tmp_msg.priority);
+                DropperNotify dnal = new DropperNotify(true, false,tmp_msg.priority);
                 sendToAppLayer(dnal, myNode.getIP());
             }
             else if (xMsg.getPayload() instanceof MessagePoolDataValue) {
@@ -799,6 +803,10 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         		  .getBattery()
         		  .getPercentageEnergyLevel()< 2) {
             System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
+            myNode.getNodeGUI()
+                   .getTerminal()
+                   .appendConsoleText(myNode.getNodeGUI().localTerminalDataSet,
+                                          "Mati " +myNode.getID() + " | time: " + JistAPI.getTime());
             if (Konstanta.IS_PAUSE) myNode.getSimControl().setSpeed(SimManager.PAUSED);
             return;
         }
@@ -813,6 +821,10 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         		  .getBattery()
         		  .getPercentageEnergyLevel()< 2) {
             System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
+            myNode.getNodeGUI()
+                   .getTerminal()
+                   .appendConsoleText(myNode.getNodeGUI().localTerminalDataSet,
+                                          "Mati " +myNode.getID() + " | time: " + JistAPI.getTime());
             if (Konstanta.IS_PAUSE) myNode.getSimControl().setSpeed(SimManager.PAUSED);
             return 0;
         }
