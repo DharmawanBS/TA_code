@@ -202,7 +202,7 @@ public class AppLayer implements AppInterface, CallbackInterface {
 
             myNode.getNodeGUI().colorCode.mark(colorProfileGeneric,ColorProfileGeneric.SENSE, 5);
             
-            if (Konstanta.USE_PRIORITY) {
+            if (Konstanta.USE_AGG) {
                 if (aap.isPoolFull(1)) {
                     send_message(1,queryId,sequenceNumber,zone,sinkLocation,sinkAddress);
 

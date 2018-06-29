@@ -5,14 +5,11 @@
         <group>
             <file>file:/home/dharmawan/Keramat/TA_4/ZRP_route/sidnet/stack/users/ZRP_route/routing/RoutingProtocol.java</file>
             <file>file:/home/dharmawan/Keramat/TA_4/ZRP_route/sidnet/stack/users/ZRP_route/driver/ZRPDriver.java</file>
-            <file>file:/home/dharmawan/Keramat/TA_4/src/main/java/sidnet/core/misc/Region.java</file>
+            <file>file:/home/dharmawan/Keramat/TA_4/src/main/java/sidnet/stack/std/mac/ieee802_15_4/Mac802_15_4Impl.java</file>
+            <file>file:/home/dharmawan/Keramat/TA_4/ZRP_route/sidnet/stack/users/ZRP_route/app/Konstanta.java</file>
             <file>file:/home/dharmawan/Keramat/TA_4/ZRP_route/sidnet/stack/users/ZRP_route/app/AppLayer.java</file>
-            <file>file:/home/dharmawan/Keramat/TA_4/ZRP_route/sidnet/stack/users/ZRP_route/app/MessageDataValue.java</file>
-            <file>file:/home/dharmawan/Keramat/TA_4/src/main/java/sidnet/core/misc/Node.java</file>
-            <file>file:/home/dharmawan/Keramat/TA_4/ZRP_route/sidnet/stack/users/ZRP_route/routing/MessagePoolDataValue.java</file>
+            <file>file:/home/dharmawan/Keramat/TA_4/ZRP_route/sidnet/stack/users/ZRP_route/app/LocalPool.java</file>
             <file>file:/home/dharmawan/Keramat/TA_4/ZRP_route/sidnet/stack/users/ZRP_route/driver/Zone.java</file>
-            <file>file:/home/dharmawan/Keramat/TA_4/ZRP_route/sidnet/stack/users/ZRP_route/routing/MessageNodeDiscover.java</file>
-            <file>file:/home/dharmawan/Keramat/TA_4/src/main/java/sidnet/core/misc/NodeEntry.java</file>
         </group>
     </open-files>
 </project-private>

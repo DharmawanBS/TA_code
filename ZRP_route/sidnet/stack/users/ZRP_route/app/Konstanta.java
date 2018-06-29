@@ -22,9 +22,9 @@ public class Konstanta {
     public static int BATTERY_SINK = 9999999;
     
     public static final boolean IS_PAUSE = false;
-    public static final boolean USE_AGG = false;
-    public static final boolean USE_POOL = false;
-    public static final boolean USE_PRIORITY = false;
+    public static final boolean USE_AGG = true;
+    public static final boolean USE_POOL = true;
+    public static final boolean USE_PRIORITY = true;
     public static final boolean DIRECT_SEND = false;
 
     public static long INTERVAL_TIMING_SEND = 5 * Constants.SECOND;
