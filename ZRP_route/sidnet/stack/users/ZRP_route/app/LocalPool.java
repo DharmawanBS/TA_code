@@ -22,14 +22,25 @@ public class LocalPool {
     private int sizeLimit_1;
     private int sizeLimit_2;
 
+    private void generate_size() {
+        if (Konstanta.DIRECT) {
+            this.sizeLimit_1 = Konstanta.START_LIMIT_NON;
+            this.sizeLimit_2 = Konstanta.START_LIMIT_NON;
+        }
+        else if (Konstanta.USE_LOCAL_POOL) {
+            this.sizeLimit_1 = Konstanta.START_LIMIT_1;
+            this.sizeLimit_2 = Konstanta.START_LIMIT_2;
+        }
+    }
+    
     public LocalPool() {
         this.data_1 = new ArrayList<Double>();
-        this.sizeLimit_1 = Konstanta.START_LIMIT_1;
         this.pool_1 = null;
         
         this.data_2 = new ArrayList<Double>();
-        this.sizeLimit_2 = Konstanta.START_LIMIT_2;
         this.pool_2 = null;
+        
+        generate_size();
     }
     
     private int getPriority(double Value) {
@@ -39,13 +50,13 @@ public class LocalPool {
         else if (Value >= Konstanta.MIN_PRI_2 && Value <= Konstanta.MAX_PRI_2) {
             return 2;
         }
-        else return -1;
+        else {
+            return -1;
+        }
     }
 
     public void putValue(double Value,int queryID) {
-        int priority;
-        if (Konstanta.USE_PRIORITY) priority = getPriority(Value);
-        else priority = 2;
+        int priority = getPriority(Value);
         
         switch (priority) {
             case 1:
@@ -85,9 +96,9 @@ public class LocalPool {
     public boolean isEmpty(int priority) {
         switch (priority) {
             case 1:
-                return (data_1.size() == 0);
+                return (data_1.isEmpty());
             case 2:
-                return (data_2.size() == 0);
+                return (data_2.isEmpty());
             default:
                 return false;
         }
@@ -114,26 +125,30 @@ public class LocalPool {
     }
 
     public void reducePoolSize(int priority) {
-        switch (priority) {
-            case 1:
-                if (this.sizeLimit_1 > Konstanta.MIN_LIMIT_1) this.sizeLimit_1--;
-                break;
-            case 2:
-                if (this.sizeLimit_2 > Konstanta.MIN_LIMIT_2) this.sizeLimit_2--;
-                break;
-            default:
-                break;
+        if ( ! Konstanta.DIRECT) {
+            switch (priority) {
+                case 1:
+                    if (this.sizeLimit_1 > Konstanta.MIN_LIMIT_1) this.sizeLimit_1--;
+                    break;
+                case 2:
+                    if (this.sizeLimit_2 > Konstanta.MIN_LIMIT_2) this.sizeLimit_2--;
+                    break;
+                default:
+                    break;
+            }
         }
     }
 
     public void increasePoolSize(int priority) {
-        switch (priority) {
-            case 1:
-                this.sizeLimit_1++;
-                break;
-            case 2:
-                this.sizeLimit_2++;
-                break;
+        if ( ! Konstanta.DIRECT) {
+            switch (priority) {
+                case 1:
+                    this.sizeLimit_1++;
+                    break;
+                case 2:
+                    this.sizeLimit_2++;
+                    break;
+            }
         }
     }
 }

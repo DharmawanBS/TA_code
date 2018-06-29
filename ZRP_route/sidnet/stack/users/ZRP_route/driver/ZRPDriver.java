@@ -54,8 +54,10 @@ import sidnet.utilityviews.statscollector.StatEntry_EnergyLeftPercentage;
 
 import sidnet.stack.users.ZRP_route.app.AppLayer;
 import sidnet.stack.users.ZRP_route.app.Konstanta;
+import static sidnet.stack.users.ZRP_route.app.Konstanta.ZONE_COUNT;
 import sidnet.stack.users.ZRP_route.colorprofile.ColorProfileZRP;
 import sidnet.stack.users.ZRP_route.routing.RoutingProtocol;
+import sidnet.utilityviews.statscollector.StatEntry_GeneralPurposeContor;
 import sidnet.utilityviews.statscollector.StatEntry_PacketDeliveryLatency;
 import sidnet.utilityviews.statscollector.StatEntry_PacketReceivedContor;
 import sidnet.utilityviews.statscollector.StatEntry_PacketReceivedPercentage;
@@ -205,6 +207,13 @@ public class ZRPDriver {
     
     statistics.monitor(new StatEntry_AliveNodesCount("NCA", 5));
     statistics.monitor(new StatEntry_DeadNodesCount("NCD", 5));
+    
+    StatEntry_GeneralPurposeContor createdCounter = new StatEntry_GeneralPurposeContor("Created");
+    StatEntry_GeneralPurposeContor receivedCounter = new StatEntry_GeneralPurposeContor("Received");
+    
+    statistics.monitor(createdCounter);
+    statistics.monitor(receivedCounter);
+    
     statistics.monitor(new StatEntry_PacketSentContor("DATA"));
     statistics.monitor(new StatEntry_PacketReceivedContor("DATA"));
     statistics.monitor(new StatEntry_PacketReceivedPercentage("DATA"));
@@ -222,10 +231,22 @@ public class ZRPDriver {
         statistics.monitor(new StatEntry_PacketDeliveryLatency("DATA_"+i, StatEntry_PacketDeliveryLatency.MODE.MAX));
     }*/
     
+    StatEntry_GeneralPurposeContor createdCounter1 = new StatEntry_GeneralPurposeContor("Created_PRI_1");
+    StatEntry_GeneralPurposeContor receivedCounter1 = new StatEntry_GeneralPurposeContor("Received_PRI_1");
+    
+    statistics.monitor(createdCounter1);
+    statistics.monitor(receivedCounter1);
+    
     statistics.monitor(new StatEntry_PacketSentContor("DATA_PRI_1"));
     statistics.monitor(new StatEntry_PacketReceivedContor("DATA_PRI_1"));
     statistics.monitor(new StatEntry_PacketReceivedPercentage("DATA_PRI_1"));
     statistics.monitor(new StatEntry_PacketDeliveryLatency("DATA_PRI_1", StatEntry_PacketDeliveryLatency.MODE.MAX));
+    
+    StatEntry_GeneralPurposeContor createdCounter2 = new StatEntry_GeneralPurposeContor("Created_PRI_2");
+    StatEntry_GeneralPurposeContor receivedCounter2 = new StatEntry_GeneralPurposeContor("Received_PRI_2");
+    
+    statistics.monitor(createdCounter2);
+    statistics.monitor(receivedCounter2);
     
     statistics.monitor(new StatEntry_PacketSentContor("DATA_PRI_2"));
     statistics.monitor(new StatEntry_PacketReceivedContor("DATA_PRI_2"));

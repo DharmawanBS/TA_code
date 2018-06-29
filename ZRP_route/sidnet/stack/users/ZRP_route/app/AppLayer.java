@@ -158,8 +158,9 @@ public class AppLayer implements AppInterface, CallbackInterface {
 
         stats.markPacketSent("DATA", sequenceNumber);
         stats.markPacketSent("DATA_PRI_"+priority, sequenceNumber);
+        stats.incrementValue("Created", sentValue.countdataValue);
+        stats.incrementValue("Created_PRI_"+priority, sentValue.countdataValue);
         //stats.markPacketSent("DATA_"+myNode.ZoneId, sequenceNumber);
-        System.out.println("send "+priority+" "+sequenceNumber);
 
         //Wrap pesan ke protokol pengiriman
         ProtocolMessageWrapper msgValue
@@ -202,36 +203,24 @@ public class AppLayer implements AppInterface, CallbackInterface {
 
             myNode.getNodeGUI().colorCode.mark(colorProfileGeneric,ColorProfileGeneric.SENSE, 5);
             
-            if (Konstanta.USE_AGG) {
-                if (aap.isPoolFull(1)) {
-                    send_message(1,queryId,sequenceNumber,zone,sinkLocation,sinkAddress);
+            if (aap.isPoolFull(1)) {
+                send_message(1,queryId,sequenceNumber,zone,sinkLocation,sinkAddress);
 
-                    if (aap.isPoolFull(2)) {
-                        JistAPI.sleepBlock(Konstanta.TIMING_DELAY_SEND_PRI);
-                    }
-                }
                 if (aap.isPoolFull(2)) {
-                    send_message(2,queryId,sequenceNumber,zone,sinkLocation,sinkAddress);
+                    JistAPI.sleepBlock(Konstanta.TIMING_DELAY_SEND_PRI);
                 }
             }
-
-            else if (Konstanta.USE_POOL) {
-                if (aap.isPoolFull(2)) {
-                    send_message(2,queryId,sequenceNumber,zone,sinkLocation,sinkAddress);
-                }
+            if (aap.isPoolFull(2)) {
+                send_message(2,queryId,sequenceNumber,zone,sinkLocation,sinkAddress);
             }
             
-            else {
-                if ( ! aap.isEmpty(2)) {
-                    send_message(2,queryId,sequenceNumber,zone,sinkLocation,sinkAddress);
-                }
-            }
             //if (this.create % 5 == 0)
             //changeCH();
            
             if (JistAPI.getTime() < endTime)
             {
                 //if (this.create < 10) {
+                if (! myNode.stop) {
                      params.set(0, samplingInterval);
                      params.set(1, endTime);
                      params.set(2, queryId);
@@ -244,6 +233,10 @@ public class AppLayer implements AppInterface, CallbackInterface {
                      //DO NOT use WHILE loops to do this, 
                      // nor call the function directly. Let JiST handle it 
                      ((AppInterface)self).sensing(params);
+                }
+                else {
+                    System.out.println("Stop "+myNode+" "+JistAPI.getTime());
+                }
                 //}
             }
             else {
@@ -372,7 +365,9 @@ public class AppLayer implements AppInterface, CallbackInterface {
             stats.markPacketReceived("DATA", msgData.sequenceNumber);
             //stats.markPacketReceived("DATA_"+msgData.zone_id, msgData.sequenceNumber);
             stats.markPacketReceived("DATA_PRI_"+msgData.priority, msgData.sequenceNumber);
-            System.out.println("receive value "+msgData.priority+" "+msgData.sequenceNumber);
+            //System.out.println("receive value "+msgData.priority+" "+msgData.sequenceNumber);
+            stats.incrementValue("Received_PRI_"+msgData.priority, msgData.count);
+            stats.incrementValue("Received", msgData.count);
             myNode.getNodeGUI().setUserDefinedData1((int)msgData.dataValue);
             myNode.getNodeGUI().setUserDefinedData2((int)msgData.sequenceNumber);
 
@@ -395,8 +390,9 @@ public class AppLayer implements AppInterface, CallbackInterface {
             
             stats.markPacketReceived("DATA", msgData.sequenceNumber);
             stats.markPacketReceived("DATA_PRI_"+msgData.priority, msgData.sequenceNumber);
+            stats.incrementValue("Received_PRI_"+msgData.priority, msgData.countdataValue);
             //stats.markPacketReceived("DATA_"+msgData.zone_id, msgData.sequenceNumber);
-            System.out.println("receive pool "+msgData.sequenceNumber);
+            //System.out.println("receive pool "+msgData.sequenceNumber);
             
             String out = "Belum tiba di sink ";
             for(int i=0;i<16;i++) {

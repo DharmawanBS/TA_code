@@ -83,6 +83,8 @@ public class Node implements NodeAPI, NodeHardwareInterface{
     
     public NodesList neighbourZoneList;
     
+    public boolean stop = false;
+    
     /** Creates a new instance of Node */
     public Node(int id, EnergyManagement energyManagement, PanelContext hostingPanelContext, LocationContext fieldContext, ColorProfile colorCode, SimManager simControl){
         this.id = id;

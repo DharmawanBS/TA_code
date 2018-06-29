@@ -84,27 +84,14 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
     //list dari node ini proses query apa saja
     private ArrayList<Integer> queryProcessed = new ArrayList<Integer>();
     
-    //hashmap key:queryid item:sinkIP,sinkLocation
-    private class DestinationSink {
-        public NetAddress sinkIP;
-        public NCS_Location2D sinkLocation;
-        public int regionProcessed;
-
-        public DestinationSink (NetAddress sinkIP, NCS_Location2D sinkLocation, int regionProcessed) {
-            this.sinkIP = sinkIP;
-            this.sinkLocation = sinkLocation;
-            this.regionProcessed = regionProcessed;
-        }
-    }
-    private HashMap<Integer, DestinationSink> detailQueryProcessed = new HashMap<Integer, DestinationSink>();
+    NetAddress sinkIP;
+    public NCS_Location2D sinkLocation;
     
     private Map<String, PoolReceivedItem> rcvPool = new HashMap<String, PoolReceivedItem>();
     private ArrayList<PoolReceivedItem> lstItemPool = new ArrayList<PoolReceivedItem>();
     
     private NCS_Location2D arrowHead = null;
     private NCS_Location2D[] arrowHead_pool = new NCS_Location2D[16];
-    
-    private Color[] color = new Color[16];
     
     ArrayList<NodeEntry> list_in = new ArrayList<NodeEntry>();
     ArrayList<NodeEntry> list_out = new ArrayList<NodeEntry>();
@@ -125,22 +112,6 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         
         /** Create a proxy for the application layer of this node */
         self = (RouteInterface.ZRP_Route)JistAPI.proxy(this, RouteInterface.ZRP_Route.class);
-        color[0] = Color.BLUE;
-        color[1] = Color.CYAN;
-        color[2] = Color.GRAY;
-        color[3] = Color.GREEN;
-        color[4] = Color.WHITE;
-        color[5] = Color.MAGENTA;
-        color[6] = Color.ORANGE;
-        color[7] = Color.PINK;
-        color[8] = Color.BLUE;
-        color[9] = Color.CYAN;
-        color[10] = Color.GRAY;
-        color[11] = Color.GREEN;
-        color[12] = Color.WHITE;
-        color[13] = Color.MAGENTA;
-        color[14] = Color.ORANGE;
-        color[15] = Color.PINK;
     }
 
     public void timingSend(long interval) {
@@ -174,8 +145,8 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
                 mpdv.mindataValue = pri.mindataValue;
                 mpdv.countdataValue = pri.countdataValue;
                 mpdv.queryID = pri.queryID;
-                mpdv.sinkIP = detailQueryProcessed.get(pri.queryID).sinkIP;
-                mpdv.sinkLocation = detailQueryProcessed.get(pri.queryID).sinkLocation;
+                mpdv.sinkIP = this.sinkIP;
+                mpdv.sinkLocation = this.sinkLocation;
                 mpdv.zone_id = myNode.ZoneId;
                 mpdv.sequenceNumber = sequenceNumber;
                 mpdv.priority = pri.priority;
@@ -188,11 +159,11 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
                 stats.markPacketSent("DATA_PRI_"+mpdv.priority, sequenceNumber);
                 System.out.println("create pool di "+mpdv.priority+" "+myNode.getID()+" "+sequenceNumber);
 
-                NetMessage.Ip nmip = new NetMessage.Ip(pmw, myNode.getIP(), detailQueryProcessed.get(mpdv.queryID).sinkIP, Constants.NET_PROTOCOL_INDEX_1, Constants.NET_PRIORITY_NORMAL, (byte)100);
+                NetMessage.Ip nmip = new NetMessage.Ip(pmw, myNode.getIP(), this.sinkIP, Constants.NET_PROTOCOL_INDEX_1, Constants.NET_PRIORITY_NORMAL, (byte)100);
                 
                 JistAPI.sleep(Konstanta.TIMING_DELAY_SEND);
                 
-                handleMessagePool(nmip);
+                sendMessage(nmip);
             }
         }
         
@@ -215,10 +186,6 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         		  .getBattery()
         		  .getPercentageEnergyLevel()< 2) {
             System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
-            myNode.getNodeGUI()
-                   .getTerminal()
-                   .appendConsoleText(myNode.getNodeGUI().localTerminalDataSet,
-                                          "Mati " +myNode.getID() + " | time: " + JistAPI.getTime());
             if (Konstanta.IS_PAUSE) myNode.getSimControl().setSpeed(SimManager.PAUSED);
             return;
         }
@@ -265,46 +232,83 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
                         +((MessagePoolDataValue) sndMsg.getPayload()).producerNodeId+" "
                         +myNode.ZoneId+" "+myNode.getID());*/
                 
-                if (Konstanta.USE_AGG) {
+                if (((MessagePoolDataValue) sndMsg.getPayload()).priority == 2) {
                     MessagePoolDataValue temp = (MessagePoolDataValue) sndMsg.getPayload();
                     stats.markPacketReceived("DATA", sndMsg.getS_seq());
                     stats.markPacketReceived("DATA_PRI_"+temp.priority, sndMsg.getS_seq());
                     //stats.markPacketReceived("DATA_"+temp.zone_id, sndMsg.getS_seq());
-                    System.out.println("receive pool di "+myNode.getID()+" "+sndMsg.getS_seq());
-                    System.out.println("receive pool di "+temp.priority+" "+myNode.getID()+" "+sndMsg.getS_seq());
+                    //System.out.println("receive pool di "+myNode.getID()+" "+sndMsg.getS_seq());
+                    //System.out.println("receive pool di "+temp.priority+" "+myNode.getID()+" "+sndMsg.getS_seq());
                     
-                    poolHandleMessagePoolDataValue(temp);
+                    poolMessage(
+                            temp.priority,
+                            temp.zone_id,
+                            temp.sequenceNumber,
+                            temp.avgdataValue,
+                            temp.countdataValue,
+                            temp.maxdataValue,
+                            temp.mindataValue,
+                            temp.queryID
+                    );
+                    
                 }
-                else handleMessagePool(msg);
+                else sendMessage(msg);
             }
         }
     }
     
-    private void handleMessagePool(NetMessage msg) {
+    private void sendMessage(NetMessage msg) {
         //Extract pesan ketipe wrapper
         ProtocolMessageWrapper sndMsg = (ProtocolMessageWrapper)((NetMessage.Ip)msg).getPayload();
 
-        //extract ke tipe mpdv
-        MessagePoolDataValue mpdv = (MessagePoolDataValue)sndMsg.getPayload();
+        NodeEntry next = null;
+        long seq = 0;
         
-        //System.out.println("pool "+myNode.getID());
-        
-        /*NodesList nextHop = getNextHop(mpdv.sinkLocation,mpdv.sinkIP);
-        LinkedList<NodeEntry> nextList = nextHop.getAsLinkedList();
-        NodeEntry next = nextList.get((int) (myNode.myZone.count%nextList.size()));*/
-        
-        NodeEntry next = findNextHop(mpdv.sinkLocation,mpdv.sinkIP,false,null);
-        if (next == null) {
-            System.out.println("NODE:" + myNode.getID() + " Drop packet " + mpdv.sequenceNumber + " tidak punya node tetangga");
-            return;
+        //extract pesan
+        if (sndMsg.getPayload() instanceof MessageDataValue) {
+            MessageDataValue this_msg = (MessageDataValue)sndMsg.getPayload();
+            
+            seq = this_msg.sequenceNumber;
+            
+            //cari next hop;
+            NodeEntry nextHop = findNextHop(sinkLocation,null,true);
+            if (nextHop == null) {
+                System.out.println("NODE:" + myNode.getID() + " Drop packet " + seq + " tidak punya node tetangga");
+                myNode.stop = true;
+            }
+            else {
+                //System.out.println("Di node "+myNode.getID()+" pesan dari "+msg.producerNodeId+" CH node lain "+CH_ip+" kirim ke "+nextHop.ip);
+                ProtocolMessageWrapper pmw = new ProtocolMessageWrapper(msg);
+                pmw.setS_seq(seq);
+                NetMessage.Ip nmip = new NetMessage.Ip(pmw, myNode.getIP(), this.sinkIP, Constants.NET_PROTOCOL_INDEX_1, Constants.NET_PRIORITY_NORMAL, (byte)100);
+                sendToLinkLayer(nmip, nextHop.ip);
+
+                arrowHead = nextHop.getNCS_Location2D();
+                topologyGUI.addLink(myNode.getNCS_Location2D(),arrowHead, 1, Color.BLACK, TopologyGUI.HeadType.LEAD_ARROW);
+            }
+        }
+        else if (sndMsg.getPayload() instanceof MessagePoolDataValue) {
+            MessagePoolDataValue this_msg = (MessagePoolDataValue)sndMsg.getPayload();
+            
+            seq = this_msg.sequenceNumber;
+            sinkIP = this_msg.sinkIP;
+            
+            next = findNextHop(this_msg.sinkLocation,this_msg.sinkIP,false);
+            
+            if (next != null) {
+                NetMessage.Ip nmip = new NetMessage.Ip(sndMsg, myNode.getIP(), this_msg.sinkIP, Constants.NET_PROTOCOL_INDEX_1, Constants.NET_PRIORITY_NORMAL, (byte)100);
+                sendToLinkLayer(nmip, next.ip);
+
+                arrowHead_pool[myNode.ZoneId] = next.getNCS_Location2D();
+                Color colour = Konstanta.color[this_msg.zone_id];
+                topologyGUI.addLink(myNode.getNCS_Location2D(), arrowHead_pool[myNode.ZoneId], this_msg.zone_id+3,colour, TopologyGUI.HeadType.LEAD_ARROW);
+            }
         }
         
-        NetMessage.Ip nmip = new NetMessage.Ip(sndMsg, myNode.getIP(), mpdv.sinkIP, Constants.NET_PROTOCOL_INDEX_1, Constants.NET_PRIORITY_NORMAL, (byte)100);
-        sendToLinkLayer(nmip, next.ip);
-
-        arrowHead_pool[myNode.ZoneId] = next.getNCS_Location2D();
-        Color colour = color[mpdv.zone_id];
-        topologyGUI.addLink(myNode.getNCS_Location2D(), arrowHead_pool[myNode.ZoneId], mpdv.zone_id+3,colour, TopologyGUI.HeadType.LEAD_ARROW);
+        if (next == null) {
+            System.out.println("NODE:" + myNode.getID() + " Drop packet " + seq + " tidak punya node tetangga");
+            myNode.stop = true;
+        }
     }
     
     private void nodeDiscover() {
@@ -335,9 +339,10 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
                 //start timing send
                 ((RouteInterface.ZRP_Route)self).timingSend(Konstanta.INTERVAL_TIMING_SEND);
 
+                this.sinkIP = query.getQuery().getSinkIP();
+                this.sinkLocation = query.getQuery().getSinkNCSLocation2D();
+                
                 this.queryProcessed.add(query.getQuery().getID());
-                DestinationSink ds = new DestinationSink(query.getQuery().getSinkIP(), query.getQuery().getSinkNCSLocation2D(), query.getQuery().getRegion().getID());
-                this.detailQueryProcessed.put(query.getQuery().getID(), ds);
 
                 //if (myNode.getID() == 22) {
                 //setelah di broadcast, query diteruskan ke app layer
@@ -354,13 +359,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         sendToLinkLayer(nmip, NetAddress.ANY);
     }
     
-    private NodeEntry findNextHop(NCS_Location2D loc,NetAddress ip,boolean intra,MessageDataValue msg) {
-        
-        if (Konstanta.DIRECT_SEND && msg != null) {
-            NodeEntry sink = myNode.neighboursList.get(detailQueryProcessed.get(msg.queryId).sinkIP);
-            if (sink != null) return sink;
-        }
-        
+    private NodeEntry findNextHop(NCS_Location2D loc,NetAddress ip,boolean intra) {
         NodeEntry nextHop = (intra) ? findNextHop_in(loc) : findNextHop_out(loc,ip);
         
         return nextHop;
@@ -370,25 +369,32 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         NodeEntry nextHop = null;
         
         double shortestNodeDistance = -1;
-
-        myNode.neighbourZoneList = new NodesList();
-
+        
         //ambil list tetangga yang dibuat oleh heartbeat
         LinkedList<NodeEntry> neighboursLinkedList = myNode.neighboursList.getAsLinkedList();
-
+        
         //ambil list tetangga yang dibuat oleh zone
         LinkedList<NodeEntry> zoneLinkedList = zone.zone.get(myNode.ZoneId).getZone_item().getAsLinkedList();
+        
+        LinkedList<NodeEntry> neighboursZoneLinkedList = null;
 
-        for(NodeEntry neighbourEntry: neighboursLinkedList) {
-            for(NodeEntry zoneEntry: zoneLinkedList) {
-                if (zoneEntry.ip == neighbourEntry.ip) {
-                    myNode.neighbourZoneList.add(neighbourEntry.ip,neighbourEntry);
+        if (Konstanta.USE_CH_POOL) {
+            myNode.neighbourZoneList = new NodesList();
+
+            for(NodeEntry neighbourEntry: neighboursLinkedList) {
+                for(NodeEntry zoneEntry: zoneLinkedList) {
+                    if (zoneEntry.ip == neighbourEntry.ip) {
+                        myNode.neighbourZoneList.add(neighbourEntry.ip,neighbourEntry);
+                    }
                 }
             }
-        }
 
-        LinkedList<NodeEntry> neighboursZoneLinkedList = myNode.neighbourZoneList.getAsLinkedList();
-        if (neighboursZoneLinkedList.size() > 0) {
+            neighboursZoneLinkedList = myNode.neighbourZoneList.getAsLinkedList();
+        }
+        else {
+            neighboursZoneLinkedList = myNode.neighboursList.getAsLinkedList();
+        }
+        if (neighboursZoneLinkedList != null && neighboursZoneLinkedList.size() > 0) {
             for(NodeEntry nodeEntry: neighboursZoneLinkedList) {
                 if (shortestNodeDistance == -1) {
                     shortestNodeDistance = nodeEntry.getNCS_Location2D().distanceTo(loc);
@@ -429,51 +435,22 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
             }
         }
 
-        double energi = -1;
-
         if (!list_in.isEmpty()) {
             nextHop = list_in.get(0);
             list_in.remove(0);
-            /*for(NodeEntry item : list_in) {
-                if (listTetangga.containsKey(item.ip)) {
-                    if (listTetangga.get(item.ip).energyLeft > energi) {
-                        nextHop = item;
-                        energi = listTetangga.get(item.ip).energyLeft;
-                    }
-                }
-            }*/
         }
         
         if (nextHop == null)  {
             nextHop = list_out.get(0);
             list_out.remove(0);
-            /*for(NodeEntry item : list2) {
-                if (listTetangga.containsKey(item.ip)) {
-                    if (listTetangga.get(item.ip).energyLeft > energi) {
-                        nextHop = item;
-                        energi = listTetangga.get(item.ip).energyLeft;
-                    }
-                }
-            }*/
         }
 
         return nextHop;
     }
     
     private void handleMessageDataValue(MessageDataValue msg) {
-        /*if (myNode.neighboursList.contains(detailQueryProcessed.get(msg.queryId).sinkIP)) {
-            ProtocolMessageWrapper pmw = new ProtocolMessageWrapper(msg);
-            pmw.setS_seq(msg.sequenceNumber);
-            NetMessage.Ip nmip = new NetMessage.Ip(pmw, myNode.getIP(), detailQueryProcessed.get(msg.queryId).sinkIP, Constants.NET_PROTOCOL_INDEX_1, Constants.NET_PRIORITY_NORMAL, (byte)100);
-            sendToLinkLayer(nmip, detailQueryProcessed.get(msg.queryId).sinkIP);
-
-            arrowHead = detailQueryProcessed.get(msg.queryId).sinkLocation;
-            topologyGUI.addLink(myNode.getNCS_Location2D(),arrowHead, 1, Color.BLACK, TopologyGUI.HeadType.LEAD_ARROW);
-            return;
-        }*/
-
         //cari cluster head
-        NodeEntry myCH = getMyClusterHead(msg);
+        NodeEntry myCH = getMyClusterHead();
         
         NCS_Location2D CH_loc = myCH.getNCS_Location2D();
         NetAddress CH_ip = myCH.ip;
@@ -501,92 +478,64 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
             stats.markPacketReceived("DATA", msg.sequenceNumber);
             stats.markPacketReceived("DATA_PRI_"+msg.priority, msg.sequenceNumber);
             //stats.markPacketReceived("DATA_"+msg.zone_id, msg.sequenceNumber);
-            System.out.println("receive value di "+msg.priority+" "+myNode.getID()+" "+msg.sequenceNumber);
+            //System.out.println("receive value di "+msg.priority+" "+myNode.getID()+" "+msg.sequenceNumber);
             
-            poolHandleMessageDataValue(msg);
+            poolMessage(
+                    msg.priority,
+                    msg.zone_id,
+                    msg.sequenceNumber,
+                    msg.dataValue,
+                    msg.count,
+                    msg.maxdataValue,
+                    msg.mindataValue,
+                    msg.queryId
+            );
         }
         else {
             //cari next hop;
-            NodeEntry nextHop = findNextHop(CH_loc,null,true,msg);
+            NodeEntry nextHop = findNextHop(CH_loc,null,true);
             if (nextHop == null) {
                 System.out.println("NODE:" + myNode.getID() + " Drop packet " + msg.sequenceNumber + " tidak punya node tetangga");
-                return;
+                myNode.stop = true;
             }
-            
-            //System.out.println("Di node "+myNode.getID()+" pesan dari "+msg.producerNodeId+" CH node lain "+CH_ip+" kirim ke "+nextHop.ip);
-            ProtocolMessageWrapper pmw = new ProtocolMessageWrapper(msg);
-            pmw.setS_seq(msg.sequenceNumber);
-            NetMessage.Ip nmip = new NetMessage.Ip(pmw, myNode.getIP(), detailQueryProcessed.get(msg.queryId).sinkIP, Constants.NET_PROTOCOL_INDEX_1, Constants.NET_PRIORITY_NORMAL, (byte)100);
-            sendToLinkLayer(nmip, nextHop.ip);
+            else {
+                //System.out.println("Di node "+myNode.getID()+" pesan dari "+msg.producerNodeId+" CH node lain "+CH_ip+" kirim ke "+nextHop.ip);
+                ProtocolMessageWrapper pmw = new ProtocolMessageWrapper(msg);
+                pmw.setS_seq(msg.sequenceNumber);
+                NetMessage.Ip nmip = new NetMessage.Ip(pmw, myNode.getIP(), sinkIP, Constants.NET_PROTOCOL_INDEX_1, Constants.NET_PRIORITY_NORMAL, (byte)100);
+                sendToLinkLayer(nmip, nextHop.ip);
 
-            arrowHead = nextHop.getNCS_Location2D();
-            topologyGUI.addLink(myNode.getNCS_Location2D(),arrowHead, 1, Color.BLACK, TopologyGUI.HeadType.LEAD_ARROW);
+                arrowHead = nextHop.getNCS_Location2D();
+                topologyGUI.addLink(myNode.getNCS_Location2D(),arrowHead, 1, Color.BLACK, TopologyGUI.HeadType.LEAD_ARROW);
+            }
         }
     }
     
-    private void poolHandleMessagePoolDataValue(MessagePoolDataValue msg) {
+    private void poolMessage(int priority,int zone_id,long seq,double avg,long count,double max,double min,int queryID) {
         //buat keyHashMap
-        String hashMapKey = msg.priority+"-"+String.valueOf(msg.zone_id);
+        String hashMapKey = priority+"-"+String.valueOf(zone_id);
+        if (! Konstanta.USE_CH_POOL) hashMapKey = hashMapKey+"-"+seq;
 
         //cek jika sudah terdapat
         if (rcvPool.containsKey(hashMapKey)) {
             //System.out.println(myNode.getID()+" duplicate pool "+ msg.sequenceNumber+" "+rcvPool.size());
-            
-            if (Konstanta.USE_AGG) {
-                PoolReceivedItem item_pool = rcvPool.get(hashMapKey);
-                item_pool.putAVG(msg.avgdataValue,msg.countdataValue);
-                item_pool.putMAX(msg.maxdataValue);
-                item_pool.putMIN(msg.mindataValue);
-            }
+            PoolReceivedItem item_pool = rcvPool.get(hashMapKey);
+            item_pool.putAVG(avg,count);
+            item_pool.putMAX(max);
+            item_pool.putMIN(min);
         }
         else {
             //tidak terdapat key
             //bikin entry queue langsung masukan
-
-            //System.out.println("Node:" + myNode.getID() + " create new hashmapkey:" + hashMapKey);
-
-            PoolReceivedItem priNew = new PoolReceivedItem(msg.maxdataValue,msg.mindataValue,msg.avgdataValue,msg.countdataValue,msg.queryID,msg.priority);
+            PoolReceivedItem priNew = new PoolReceivedItem(max,min,avg,count,queryID,priority);
             rcvPool.put(hashMapKey, priNew);
         }
     }
     
-    private void poolHandleMessageDataValue(MessageDataValue msg) {
-        //buat keyHashMap
-        String hashMapKey;
-        if (Konstanta.USE_AGG) hashMapKey = String.valueOf(msg.zone_id);
-        else hashMapKey = String.valueOf(msg.sequenceNumber);
-
-        //cek jika sudah terdapat
-        if (rcvPool.containsKey(hashMapKey)) {
-            //System.out.println(myNode.getID()+" duplicate pool "+ msg.sequenceNumber+" "+rcvPool.size());
-            
-            if (Konstanta.USE_AGG) {
-                PoolReceivedItem item_pool = rcvPool.get(hashMapKey);
-                item_pool.putAVG(msg.dataValue,msg.count);
-                item_pool.putMAX(msg.maxdataValue);
-                item_pool.putMIN(msg.mindataValue);
-            }
-        }
-        else {
-            //tidak terdapat key
-            //bikin entry queue langsung masukan
-
-            //System.out.println("Node:" + myNode.getID() + " create new hashmapkey:" + hashMapKey);
-
-            PoolReceivedItem priNew = new PoolReceivedItem(msg.maxdataValue,msg.mindataValue,msg.dataValue,msg.count,msg.queryId,msg.priority);
-            rcvPool.put(hashMapKey, priNew);
-        }
-    }
-    
-    private NodeEntry getMyClusterHead(MessageDataValue msg) {
+    private NodeEntry getMyClusterHead() {
         //LinkedList<NodeEntry> pilihanCH = zone.zone.get(myNode.ZoneId).getZone_item().getAsLinkedList();
         
         //NodeEntry CH = pilihanCH.get((int) (zone.zone.get(myNode.ZoneId).count%pilihanCH.size()));
-        
-        if (Konstanta.DIRECT_SEND) {
-            NodeEntry sink = myNode.neighboursList.get(detailQueryProcessed.get(msg.queryId).sinkIP);
-            if (sink != null) return sink;
-        }
         
         return zone.zone.get(myNode.ZoneId).CH;
     }
@@ -598,10 +547,6 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         		  .getBattery()
         		  .getPercentageEnergyLevel()< 2) {
             System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
-            myNode.getNodeGUI()
-                   .getTerminal()
-                   .appendConsoleText(myNode.getNodeGUI().localTerminalDataSet,
-                                          "Mati " +myNode.getID() + " | time: " + JistAPI.getTime());
             if (Konstanta.IS_PAUSE) myNode.getSimControl().setSpeed(SimManager.PAUSED);
             return;
         }
@@ -653,8 +598,6 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
 
             //bagian ini biasanya dipanggil jika pesan ini diterima pada sink node
             //lempar ke layer app
-            //sendToAppLayer(rcvMsg.getPayload(), src);
-            
             sendToAppLayer((MessagePoolDataValue)rcvMsg.getPayload(), null);
             //System.out.println("receive pool Node " + myNode.getID());
         }
@@ -668,8 +611,6 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
 
             //bagian ini biasanya dipanggil jika pesan ini diterima pada sink node
             //lempar ke layer app
-            //sendToAppLayer(rcvMsg.getPayload(), src);
-            
             sendToAppLayer((MessageDataValue)rcvMsg.getPayload(), null);
         }
     }
@@ -679,15 +620,6 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         NodeEntryDiscovery ned = new NodeEntryDiscovery(msg.nodeID, msg.ipAddress, msg.totalDiscoveredNode, msg.energyLeft, msg.zone_id);
         ned.addQueryProcessed(msg.queryProcessed);
         listTetangga.put(msg.ipAddress, ned);
-        
-        /*if (myNode.ZoneId == msg.zone_id && msg.is_tepi) {
-            listTepi.put(msg.ipAddress, ned);
-            
-            ProtocolMessageWrapper pmw = new ProtocolMessageWrapper(msg);
-            pmw.setS_seq(unikID);
-            NetMessage.Ip nmip = new NetMessage.Ip(pmw, myNode.getIP(), NetAddress.ANY, Constants.NET_PROTOCOL_INDEX_1, Constants.NET_PRIORITY_NORMAL, (byte)100);
-            sendToLinkLayer(nmip, NetAddress.ANY);
-        }*/
     }
     
     private NetAddress convertMacToIP(MacAddress macAddr) {
@@ -803,10 +735,6 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         		  .getBattery()
         		  .getPercentageEnergyLevel()< 2) {
             System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
-            myNode.getNodeGUI()
-                   .getTerminal()
-                   .appendConsoleText(myNode.getNodeGUI().localTerminalDataSet,
-                                          "Mati " +myNode.getID() + " | time: " + JistAPI.getTime());
             if (Konstanta.IS_PAUSE) myNode.getSimControl().setSpeed(SimManager.PAUSED);
             return;
         }
@@ -821,22 +749,10 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         		  .getBattery()
         		  .getPercentageEnergyLevel()< 2) {
             System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
-            myNode.getNodeGUI()
-                   .getTerminal()
-                   .appendConsoleText(myNode.getNodeGUI().localTerminalDataSet,
-                                          "Mati " +myNode.getID() + " | time: " + JistAPI.getTime());
             if (Konstanta.IS_PAUSE) myNode.getSimControl().setSpeed(SimManager.PAUSED);
             return 0;
         }
      
-        /*myNode.getSimManager().getSimGUI()
-		  .getAnimationDrawingTool()
-		 	  .animate("ExpandingFadingCircle",
-				       myNode.getNCS_Location2D());*/
-        
-//        if (myNode.getID() == 164)
-//            System.out.println("route packet to " + nextHopDestIP);
-
         ProtocolMessageWrapper pmw = (ProtocolMessageWrapper)ipMsg.getPayload();
         NetMessage.Ip copyMsg = new NetMessage.Ip(pmw,
 			       ((NetMessage.Ip)ipMsg).getSrc(),

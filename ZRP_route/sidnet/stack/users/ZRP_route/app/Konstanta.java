@@ -5,6 +5,7 @@
  */
 package sidnet.stack.users.ZRP_route.app;
 
+import java.awt.Color;
 import jist.swans.Constants;
 
 /**
@@ -22,10 +23,9 @@ public class Konstanta {
     public static int BATTERY_SINK = 9999999;
     
     public static final boolean IS_PAUSE = false;
-    public static final boolean USE_AGG = true;
-    public static final boolean USE_POOL = true;
-    public static final boolean USE_PRIORITY = true;
-    public static final boolean DIRECT_SEND = false;
+    public static final boolean DIRECT = false;
+    public static final boolean USE_CH_POOL = true;
+    public static final boolean USE_LOCAL_POOL = true;
 
     public static long INTERVAL_TIMING_SEND = 5 * Constants.SECOND;
     public static final long TIMING_DELAY_SEND = 300 * Constants.MILLI_SECOND;
@@ -44,6 +44,9 @@ public class Konstanta {
     
     public static final int START_LIMIT_2 = 60;
     public static final int MIN_LIMIT_2 = 30;
+    
+    public static final int START_LIMIT_NON = 1;
+    public static final int MIN_LIMIT_NON = 1;
 
     public static final int MIN_PRI_1 = 39;
     public static final int MAX_PRI_1 = 45;
@@ -52,4 +55,8 @@ public class Konstanta {
     public static final int MAX_PRI_2 = 38;
     
     public static final long TIMING_DELAY_SEND_PRI = 300 * Constants.MILLI_SECOND;
+    
+    public static final Color[] color = {
+        Color.BLUE,Color.CYAN,Color.GRAY,Color.GREEN,Color.WHITE,Color.MAGENTA,Color.ORANGE,Color.PINK,
+        Color.BLUE,Color.CYAN,Color.GRAY,Color.GREEN,Color.WHITE,Color.MAGENTA,Color.ORANGE,Color.PINK};
 }

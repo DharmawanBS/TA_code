@@ -22,8 +22,6 @@ public class MessagePoolDataValue implements Message {
     public long sequenceNumber;
     
     public int queryID;
-    
-    public int producerNodeId;
 
     public NetAddress sinkIP;
     public NCS_Location2D sinkLocation;
