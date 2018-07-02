@@ -15,7 +15,7 @@ import sidnet.stack.users.ZRP_route.ignoredpackage.PoolReceivedItem;
  */
 public class LocalPool {
     private List<Double> data_1;
-    private List<Double> data_2;
+    public List<Double> data_2;
     private PoolReceivedItem pool_1;
     private PoolReceivedItem pool_2;
 
@@ -23,13 +23,13 @@ public class LocalPool {
     private int sizeLimit_2;
 
     private void generate_size() {
-        if (Konstanta.DIRECT) {
-            this.sizeLimit_1 = Konstanta.START_LIMIT_NON;
-            this.sizeLimit_2 = Konstanta.START_LIMIT_NON;
-        }
-        else if (Konstanta.USE_LOCAL_POOL) {
+        if (Konstanta.USE_LOCAL_POOL) {
             this.sizeLimit_1 = Konstanta.START_LIMIT_1;
             this.sizeLimit_2 = Konstanta.START_LIMIT_2;
+        }
+        else {
+            this.sizeLimit_1 = Konstanta.START_LIMIT_NON;
+            this.sizeLimit_2 = Konstanta.START_LIMIT_NON;
         }
     }
     

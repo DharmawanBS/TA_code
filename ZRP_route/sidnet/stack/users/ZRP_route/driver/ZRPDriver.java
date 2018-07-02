@@ -53,9 +53,10 @@ import sidnet.utilityviews.statscollector.StatsCollector;
 import sidnet.utilityviews.statscollector.StatEntry_EnergyLeftPercentage;
 
 import sidnet.stack.users.ZRP_route.app.AppLayer;
+import sidnet.stack.users.ZRP_route.app.CSV_Statistics;
 import sidnet.stack.users.ZRP_route.app.Konstanta;
-import static sidnet.stack.users.ZRP_route.app.Konstanta.ZONE_COUNT;
 import sidnet.stack.users.ZRP_route.colorprofile.ColorProfileZRP;
+import sidnet.stack.users.ZRP_route.ignoredpackage.CSV_NodeDie;
 import sidnet.stack.users.ZRP_route.routing.RoutingProtocol;
 import sidnet.utilityviews.statscollector.StatEntry_GeneralPurposeContor;
 import sidnet.utilityviews.statscollector.StatEntry_PacketDeliveryLatency;
@@ -69,6 +70,8 @@ import sidnet.utilityviews.statscollector.StatEntry_PacketSentContor;
  */
 public class ZRPDriver {
     public static Zone zone = new Zone(Konstanta.ZONE_COUNT);
+    private static CSV_Statistics csv_stats;
+    private static CSV_NodeDie csv_nodedie;
     
     public static TopologyGUI topologyGUI = new TopologyGUI();
     public static int nodes, fieldLength, time;
@@ -259,6 +262,9 @@ public class ZRPDriver {
     
     /** Create the sensor nodes (each at a time). Initialize each node's data and network stack */
         
+    csv_stats = new CSV_Statistics(statistics);
+    csv_nodedie = new CSV_NodeDie();
+    
     int sink = Konstanta.SINK;
     //int sink = (int) (Math.random() * nodes + 0);
       System.out.println("sink = "+sink);
@@ -411,7 +417,7 @@ public class ZRPDriver {
     
      /* *** Configuring the ISO layers - more or less self-explanatory *** */
                 /* APP layer configuration */
-                AppLayer app = new AppLayer(node, Constants.NET_PROTOCOL_INDEX_1, stats,seq);
+                AppLayer app = new AppLayer(node, Constants.NET_PROTOCOL_INDEX_1, stats,seq,csv_stats,csv_nodedie);
                 
                 if (app.topologyGUI == null)
                     app.topologyGUI = topologyGUI;
@@ -430,7 +436,7 @@ public class ZRPDriver {
                 
                 //ShortestGeoPathRouting shortestGeographicalPathRouting = new ShortestGeoPathRouting(node);
                 
-                RoutingProtocol routingProtocol = new RoutingProtocol(node,stats,seq,zone);
+                RoutingProtocol routingProtocol = new RoutingProtocol(node,stats,seq,zone,csv_nodedie);
 
                 if(routingProtocol.topologyGUI == null) routingProtocol.topologyGUI = topologyGUI;
                 
@@ -520,7 +526,7 @@ public class ZRPDriver {
     
      /* *** Configuring the ISO layers - more or less self-explanatory *** */
                 /* APP layer configuration */
-                AppLayer app = new AppLayer(node, Constants.NET_PROTOCOL_INDEX_1, stats,seq);
+                AppLayer app = new AppLayer(node, Constants.NET_PROTOCOL_INDEX_1, stats,seq,csv_stats,csv_nodedie);
                 
                 if (app.topologyGUI == null)
                     app.topologyGUI = topologyGUI;
@@ -539,7 +545,7 @@ public class ZRPDriver {
                 
                 //ShortestGeoPathRouting shortestGeographicalPathRouting = new ShortestGeoPathRouting(node);
                 
-                RoutingProtocol routingProtocol = new RoutingProtocol(node,stats,seq,zone);
+                RoutingProtocol routingProtocol = new RoutingProtocol(node,stats,seq,zone,csv_nodedie);
 
                 if(routingProtocol.topologyGUI == null) routingProtocol.topologyGUI = topologyGUI;
                 

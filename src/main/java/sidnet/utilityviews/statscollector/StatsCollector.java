@@ -136,6 +136,10 @@ implements SimulationTimeRunnable {
     	return null;
     }
     
+    public LinkedList<StatEntry> getStatistic() {
+        return statEntryList;
+    }
+    
     /**
      * Creates a new instance of StatsCollector
      * Logging disabled

@@ -23,9 +23,13 @@ public class Konstanta {
     public static int BATTERY_SINK = 9999999;
     
     public static final boolean IS_PAUSE = false;
+    
+    //use_ch_pool true, lainnya false
+    //use_local_pool true, lainnya false
     public static final boolean DIRECT = false;
     public static final boolean USE_CH_POOL = true;
     public static final boolean USE_LOCAL_POOL = true;
+    //
 
     public static long INTERVAL_TIMING_SEND = 5 * Constants.SECOND;
     public static final long TIMING_DELAY_SEND = 300 * Constants.MILLI_SECOND;
@@ -59,4 +63,10 @@ public class Konstanta {
     public static final Color[] color = {
         Color.BLUE,Color.CYAN,Color.GRAY,Color.GREEN,Color.WHITE,Color.MAGENTA,Color.ORANGE,Color.PINK,
         Color.BLUE,Color.CYAN,Color.GRAY,Color.GREEN,Color.WHITE,Color.MAGENTA,Color.ORANGE,Color.PINK};
+    
+    public static String CSV_NAME_STATISTICS = "statistics.csv";
+    public static String CSV_NAME_DEATHNODE = "deathnode.csv";
+    
+    public static final String COMMA_DELIMITER = ",";
+    public static final String NEW_LINE_SEPARATOR = "\n";
 }

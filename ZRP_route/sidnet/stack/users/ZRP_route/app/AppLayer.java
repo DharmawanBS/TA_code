@@ -5,8 +5,11 @@
  */
 package sidnet.stack.users.ZRP_route.app;
 
+import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import jist.runtime.JistAPI;
 import jist.swans.Constants;
 import jist.swans.mac.MacAddress;
@@ -24,6 +27,7 @@ import sidnet.core.query.Query;
 import sidnet.core.simcontrol.SimManager;
 import sidnet.stack.std.routing.heartbeat.MessageHeartbeat;
 import sidnet.stack.users.ZRP_route.driver.SequenceGenerator;
+import sidnet.stack.users.ZRP_route.ignoredpackage.CSV_NodeDie;
 import sidnet.stack.users.ZRP_route.routing.MessagePoolDataValue;
 import sidnet.stack.users.ZRP_route.ignoredpackage.PoolReceivedItem;
 import sidnet.stack.users.ZRP_route.ignoredpackage.ReadCSVFile;
@@ -71,11 +75,16 @@ public class AppLayer implements AppInterface, CallbackInterface {
     
     private final ReadCSVFile file = new ReadCSVFile();
     
+    private CSV_Statistics csv_stats;
+    private CSV_NodeDie csv_deathnode;
+    
     /** Creates a new instance of the AppP2P */
     public AppLayer(Node myNode, 
     					short routingProtocolIndex,
     					StatsCollector stats,
-                                        SequenceGenerator seq)
+                                        SequenceGenerator seq,
+                                        CSV_Statistics csv_stats,
+                                        CSV_NodeDie csv_deathnode)
     {
         this.self = JistAPI.proxyMany(this, new Class[] { AppInterface.class });
         this.myNode = myNode;
@@ -88,6 +97,9 @@ public class AppLayer implements AppInterface, CallbackInterface {
         this.routingProtocolIndex = routingProtocolIndex;
 
         this.stats = stats;
+        
+        this.csv_stats = csv_stats;
+        this.csv_deathnode = csv_deathnode;
     }    
     
     /* 
@@ -219,6 +231,16 @@ public class AppLayer implements AppInterface, CallbackInterface {
            
             if (JistAPI.getTime() < endTime)
             {
+                if (myNode.getID() == 1) {
+                    long hour = (int) (JistAPI.getTime()/Constants.HOUR);
+                    long minute = (int) ((JistAPI.getTime() - hour*Constants.HOUR)/Constants.MINUTE);
+                    try {
+                        this.csv_stats.write(hour,minute);
+                    } catch (IOException ex) {
+                        Logger.getLogger(AppLayer.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+                        
                 //if (this.create < 10) {
                 if (! myNode.stop) {
                      params.set(0, samplingInterval);
@@ -245,10 +267,11 @@ public class AppLayer implements AppInterface, CallbackInterface {
            }
            else {
                System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
-               myNode.getNodeGUI()
-                   .getTerminal()
-                   .appendConsoleText(myNode.getNodeGUI().localTerminalDataSet,
-                                          "Mati " +myNode.getID() + " | time: " + JistAPI.getTime());
+               try {
+                   csv_deathnode.write(myNode.getID(), myNode.getZoneId(), JistAPI.getTime());
+               } catch (IOException ex) {
+                   Logger.getLogger(AppLayer.class.getName()).log(Level.SEVERE, null, ex);
+               }
                if (Konstanta.IS_PAUSE) myNode.getSimControl().setSpeed(SimManager.PAUSED);
                return;
            }
