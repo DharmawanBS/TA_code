@@ -305,6 +305,7 @@ public class ZRPDriver {
                         (int) Math.ceil(Math.sqrt(Konstanta.ZONE_COUNT)));
         
         myNode[i].setZoneId(zone_id);
+        myNode[i].csv_deathnode = csv_nodedie;
         NodeEntry newEntry = new NodeEntry( null,
                                             myNode[i].getIP(),
                                             myNode[i].getNCS_Location2D()
@@ -417,7 +418,7 @@ public class ZRPDriver {
     
      /* *** Configuring the ISO layers - more or less self-explanatory *** */
                 /* APP layer configuration */
-                AppLayer app = new AppLayer(node, Constants.NET_PROTOCOL_INDEX_1, stats,seq,csv_stats,csv_nodedie);
+                AppLayer app = new AppLayer(node, Constants.NET_PROTOCOL_INDEX_1, stats,seq,csv_stats);
                 
                 if (app.topologyGUI == null)
                     app.topologyGUI = topologyGUI;
@@ -436,7 +437,7 @@ public class ZRPDriver {
                 
                 //ShortestGeoPathRouting shortestGeographicalPathRouting = new ShortestGeoPathRouting(node);
                 
-                RoutingProtocol routingProtocol = new RoutingProtocol(node,stats,seq,zone,csv_nodedie);
+                RoutingProtocol routingProtocol = new RoutingProtocol(node,stats,seq,zone);
 
                 if(routingProtocol.topologyGUI == null) routingProtocol.topologyGUI = topologyGUI;
                 
@@ -526,7 +527,7 @@ public class ZRPDriver {
     
      /* *** Configuring the ISO layers - more or less self-explanatory *** */
                 /* APP layer configuration */
-                AppLayer app = new AppLayer(node, Constants.NET_PROTOCOL_INDEX_1, stats,seq,csv_stats,csv_nodedie);
+                AppLayer app = new AppLayer(node, Constants.NET_PROTOCOL_INDEX_1, stats,seq,csv_stats);
                 
                 if (app.topologyGUI == null)
                     app.topologyGUI = topologyGUI;
@@ -545,7 +546,7 @@ public class ZRPDriver {
                 
                 //ShortestGeoPathRouting shortestGeographicalPathRouting = new ShortestGeoPathRouting(node);
                 
-                RoutingProtocol routingProtocol = new RoutingProtocol(node,stats,seq,zone,csv_nodedie);
+                RoutingProtocol routingProtocol = new RoutingProtocol(node,stats,seq,zone);
 
                 if(routingProtocol.topologyGUI == null) routingProtocol.topologyGUI = topologyGUI;
                 

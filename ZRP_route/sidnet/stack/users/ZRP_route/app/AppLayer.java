@@ -27,7 +27,6 @@ import sidnet.core.query.Query;
 import sidnet.core.simcontrol.SimManager;
 import sidnet.stack.std.routing.heartbeat.MessageHeartbeat;
 import sidnet.stack.users.ZRP_route.driver.SequenceGenerator;
-import sidnet.stack.users.ZRP_route.ignoredpackage.CSV_NodeDie;
 import sidnet.stack.users.ZRP_route.routing.MessagePoolDataValue;
 import sidnet.stack.users.ZRP_route.ignoredpackage.PoolReceivedItem;
 import sidnet.stack.users.ZRP_route.ignoredpackage.ReadCSVFile;
@@ -76,15 +75,13 @@ public class AppLayer implements AppInterface, CallbackInterface {
     private final ReadCSVFile file = new ReadCSVFile();
     
     private CSV_Statistics csv_stats;
-    private CSV_NodeDie csv_deathnode;
     
     /** Creates a new instance of the AppP2P */
     public AppLayer(Node myNode, 
     					short routingProtocolIndex,
     					StatsCollector stats,
                                         SequenceGenerator seq,
-                                        CSV_Statistics csv_stats,
-                                        CSV_NodeDie csv_deathnode)
+                                        CSV_Statistics csv_stats)
     {
         this.self = JistAPI.proxyMany(this, new Class[] { AppInterface.class });
         this.myNode = myNode;
@@ -99,7 +96,6 @@ public class AppLayer implements AppInterface, CallbackInterface {
         this.stats = stats;
         
         this.csv_stats = csv_stats;
-        this.csv_deathnode = csv_deathnode;
     }    
     
     /* 
@@ -237,7 +233,7 @@ public class AppLayer implements AppInterface, CallbackInterface {
                     try {
                         this.csv_stats.write(hour,minute);
                     } catch (IOException ex) {
-                        Logger.getLogger(AppLayer.class.getName()).log(Level.SEVERE, null, ex);
+                        //Logger.getLogger(AppLayer.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
                         
@@ -268,9 +264,9 @@ public class AppLayer implements AppInterface, CallbackInterface {
            else {
                System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
                try {
-                   csv_deathnode.write(myNode.getID(), myNode.getZoneId(), JistAPI.getTime());
+                   myNode.csv_deathnode.write(myNode.getID(), myNode.getZoneId(), JistAPI.getTime());
                } catch (IOException ex) {
-                   Logger.getLogger(AppLayer.class.getName()).log(Level.SEVERE, null, ex);
+                   //Logger.getLogger(AppLayer.class.getName()).log(Level.SEVERE, null, ex);
                }
                if (Konstanta.IS_PAUSE) myNode.getSimControl().setSpeed(SimManager.PAUSED);
                return;

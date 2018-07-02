@@ -34,6 +34,7 @@ import sidnet.core.interfaces.Sensor;
 import sidnet.core.interfaces.SimControl;
 import sidnet.core.simcontrol.SimManager;
 import sidnet.stack.users.ZRP_route.driver.Zone.Zone_info;
+import sidnet.stack.users.ZRP_route.ignoredpackage.CSV_NodeDie;
 
 /**
  *
@@ -84,6 +85,8 @@ public class Node implements NodeAPI, NodeHardwareInterface{
     public NodesList neighbourZoneList;
     
     public boolean stop = false;
+    
+    public CSV_NodeDie csv_deathnode;
     
     /** Creates a new instance of Node */
     public Node(int id, EnergyManagement energyManagement, PanelContext hostingPanelContext, LocationContext fieldContext, ColorProfile colorCode, SimManager simControl){

@@ -41,7 +41,6 @@ import sidnet.stack.users.ZRP_route.app.MessageDataValue;
 import sidnet.stack.users.ZRP_route.app.MessageQuery;
 import sidnet.stack.users.ZRP_route.driver.SequenceGenerator;
 import sidnet.stack.users.ZRP_route.driver.Zone;
-import sidnet.stack.users.ZRP_route.ignoredpackage.CSV_NodeDie;
 import sidnet.utilityviews.statscollector.StatsCollector;
 
 /**
@@ -101,8 +100,6 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
     ArrayList<NodeEntry> list_in = new ArrayList<NodeEntry>();
     ArrayList<NodeEntry> list_out = new ArrayList<NodeEntry>();
     
-    private CSV_NodeDie csv_deathnode;
-    
     /** Creates a new instance
      *
      * @param myNode              the SIDnet node handle to access 
@@ -111,13 +108,11 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
      * @param seq
      * @param zone
      */
-    public RoutingProtocol(Node myNode,StatsCollector stats,SequenceGenerator seq,Zone zone,CSV_NodeDie csv_deathnode) {
+    public RoutingProtocol(Node myNode,StatsCollector stats,SequenceGenerator seq,Zone zone) {
         this.myNode = myNode;
         this.stats = stats;
         this.seq = seq;
         this.zone = zone;
-        
-        this.csv_deathnode = csv_deathnode;
         
         /** Create a proxy for the application layer of this node */
         self = (RouteInterface.ZRP_Route)JistAPI.proxy(this, RouteInterface.ZRP_Route.class);
@@ -194,9 +189,9 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         if (myNode.getEnergyManagement()
         		  .getBattery()
         		  .getPercentageEnergyLevel()< 2) {
-            System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
+            System.out.println("Mati "+myNode.getID()+" "+myNode.getZoneId()+" "+JistAPI.getTime());
             try {
-                csv_deathnode.write(myNode.getID(), myNode.getZoneId(), JistAPI.getTime());
+                myNode.csv_deathnode.write(myNode.getID(), myNode.getZoneId(), JistAPI.getTime());
             } catch (IOException ex) {
                 Logger.getLogger(AppLayer.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -562,7 +557,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         		  .getPercentageEnergyLevel()< 2) {
             System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
             try {
-                csv_deathnode.write(myNode.getID(), myNode.getZoneId(), JistAPI.getTime());
+                myNode.csv_deathnode.write(myNode.getID(), myNode.getZoneId(), JistAPI.getTime());
             } catch (IOException ex) {
                 Logger.getLogger(AppLayer.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -755,7 +750,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         		  .getPercentageEnergyLevel()< 2) {
             System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
             try {
-                csv_deathnode.write(myNode.getID(), myNode.getZoneId(), JistAPI.getTime());
+                myNode.csv_deathnode.write(myNode.getID(), myNode.getZoneId(), JistAPI.getTime());
             } catch (IOException ex) {
                 Logger.getLogger(AppLayer.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -774,7 +769,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         		  .getPercentageEnergyLevel()< 2) {
             System.out.println("Mati "+myNode.getID()+" "+JistAPI.getTime());
             try {
-                csv_deathnode.write(myNode.getID(), myNode.getZoneId(), JistAPI.getTime());
+                myNode.csv_deathnode.write(myNode.getID(), myNode.getZoneId(), JistAPI.getTime());
             } catch (IOException ex) {
                 Logger.getLogger(AppLayer.class.getName()).log(Level.SEVERE, null, ex);
             }

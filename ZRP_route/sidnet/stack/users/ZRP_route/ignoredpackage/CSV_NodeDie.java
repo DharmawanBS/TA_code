@@ -32,8 +32,7 @@ public class CSV_NodeDie {
     }
     
     public void write(int id,int zone,long time) throws IOException {
-        if (deathNode.contains(id)) return;
-        else {
+        if (! deathNode.contains(id)) {
             deathNode.add(id);
             fileWriter.append(convert(id,zone,time));
         }
