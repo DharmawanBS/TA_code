@@ -39,8 +39,8 @@ import sidnet.stack.users.ZRP_route.app.DropperNotify;
 import sidnet.stack.users.ZRP_route.app.Konstanta;
 import sidnet.stack.users.ZRP_route.app.MessageDataValue;
 import sidnet.stack.users.ZRP_route.app.MessageQuery;
+import sidnet.stack.users.ZRP_route.driver.Cluster;
 import sidnet.stack.users.ZRP_route.driver.SequenceGenerator;
-import sidnet.stack.users.ZRP_route.driver.Zone;
 import sidnet.utilityviews.statscollector.StatsCollector;
 
 /**
@@ -52,7 +52,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
     public static final byte ERROR = -1;
     public static final byte SUCCESS = 0;
     private SequenceGenerator seq;
-    private Zone zone;
+    private Cluster[] cluster;
     
     private final Node myNode; // The SIDnet handle to the node representation 
     private final StatsCollector stats;
@@ -74,10 +74,6 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
     
     //Showing topology
     public static TopologyGUI topologyGUI = null;
-    
-    //node entry discover hashmap, keperluan penentuan my cluster head
-    private HashMap<NetAddress, NodeEntryDiscovery> listTetangga = new HashMap<NetAddress, NodeEntryDiscovery>();
-    private HashMap<NetAddress, NodeEntryDiscovery> listTepi = new HashMap<NetAddress, NodeEntryDiscovery>();
     
     //anti-duplicate list
     ArrayList<String> receivedDataId = new ArrayList<String>();
@@ -108,11 +104,11 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
      * @param seq
      * @param zone
      */
-    public RoutingProtocol(Node myNode,StatsCollector stats,SequenceGenerator seq,Zone zone) {
+    public RoutingProtocol(Node myNode,StatsCollector stats,SequenceGenerator seq,Cluster[] cluster) {
         this.myNode = myNode;
         this.stats = stats;
         this.seq = seq;
-        this.zone = zone;
+        this.cluster = cluster;
         
         /** Create a proxy for the application layer of this node */
         self = (RouteInterface.ZRP_Route)JistAPI.proxy(this, RouteInterface.ZRP_Route.class);
@@ -126,7 +122,8 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
 
         if (!rcvPool.isEmpty()) {
             
-            zone.zone.get(myNode.ZoneId).changeCH();
+            cluster[myNode.ClusterId].changeCH();
+            topologyGUI.removeGroup(myNode.ClusterId+3);
             
             lstItemPool.clear();
             
@@ -151,7 +148,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
                 mpdv.queryID = pri.queryID;
                 mpdv.sinkIP = this.sinkIP;
                 mpdv.sinkLocation = this.sinkLocation;
-                mpdv.zone_id = myNode.ZoneId;
+                mpdv.zone_id = myNode.ClusterId;
                 mpdv.sequenceNumber = sequenceNumber;
                 mpdv.priority = pri.priority;
 
@@ -308,9 +305,9 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
                 NetMessage.Ip nmip = new NetMessage.Ip(sndMsg, myNode.getIP(), this_msg.sinkIP, Constants.NET_PROTOCOL_INDEX_1, Constants.NET_PRIORITY_NORMAL, (byte)100);
                 sendToLinkLayer(nmip, next.ip);
 
-                arrowHead_pool[myNode.ZoneId] = next.getNCS_Location2D();
+                arrowHead_pool[myNode.ClusterId] = next.getNCS_Location2D();
                 Color colour = Konstanta.color[this_msg.zone_id];
-                topologyGUI.addLink(myNode.getNCS_Location2D(), arrowHead_pool[myNode.ZoneId], this_msg.zone_id+3,colour, TopologyGUI.HeadType.LEAD_ARROW);
+                topologyGUI.addLink(myNode.getNCS_Location2D(), arrowHead_pool[myNode.ClusterId], this_msg.zone_id+3,colour, TopologyGUI.HeadType.LEAD_ARROW);
             }
         }
         
@@ -353,7 +350,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
                 
                 this.queryProcessed.add(query.getQuery().getID());
 
-                //if (myNode.getID() == 22) {
+                //if (myNode.ClusterId == 0) {
                 //setelah di broadcast, query diteruskan ke app layer
                 sendToAppLayer(query, null);
                 //}
@@ -383,7 +380,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         LinkedList<NodeEntry> neighboursLinkedList = myNode.neighboursList.getAsLinkedList();
         
         //ambil list tetangga yang dibuat oleh zone
-        LinkedList<NodeEntry> zoneLinkedList = zone.zone.get(myNode.ZoneId).getZone_item().getAsLinkedList();
+        LinkedList<NodeEntry> zoneLinkedList = myNode.myCluster.myCluster.getAsLinkedList();
         
         LinkedList<NodeEntry> neighboursZoneLinkedList = null;
 
@@ -460,6 +457,9 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
     private void handleMessageDataValue(MessageDataValue msg) {
         //cari cluster head
         NodeEntry myCH = getMyClusterHead();
+        if (myNode.getID() == 14) {
+            System.out.println("====> "+myCH.ip);
+        }
         
         NCS_Location2D CH_loc = myCH.getNCS_Location2D();
         NetAddress CH_ip = myCH.ip;
@@ -545,8 +545,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         //LinkedList<NodeEntry> pilihanCH = zone.zone.get(myNode.ZoneId).getZone_item().getAsLinkedList();
         
         //NodeEntry CH = pilihanCH.get((int) (zone.zone.get(myNode.ZoneId).count%pilihanCH.size()));
-        
-        return zone.zone.get(myNode.ZoneId).CH;
+        return myNode.myCluster.CHCluster.getAsLinkedList().get(myNode.myCluster.CH_now);
     }
 
     public void receive(Message msg, NetAddress src, MacAddress lastHop, byte macId, NetAddress dst, byte priority, byte ttl) {
@@ -633,7 +632,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
         
         NodeEntryDiscovery ned = new NodeEntryDiscovery(msg.nodeID, msg.ipAddress, msg.totalDiscoveredNode, msg.energyLeft, msg.zone_id);
         ned.addQueryProcessed(msg.queryProcessed);
-        listTetangga.put(msg.ipAddress, ned);
+        //=====>listTetangga.put(msg.ipAddress, ned);
     }
     
     private NetAddress convertMacToIP(MacAddress macAddr) {

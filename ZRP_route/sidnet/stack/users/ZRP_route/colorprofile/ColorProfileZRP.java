@@ -11,6 +11,7 @@ package sidnet.stack.users.ZRP_route.colorprofile;
 
 import sidnet.core.interfaces.ColorProfile;
 import java.awt.Color;
+import sidnet.stack.users.ZRP_route.app.Konstanta;
 
 public class ColorProfileZRP extends ColorProfile{
     public static final String DATA       = "DATA";    
@@ -22,6 +23,8 @@ public class ColorProfileZRP extends ColorProfile{
     public static final String SENSE      = "SENSE";
     public static final String CLUSTERHEAD  = "CLUSTERHEAD";
     public static final String NONE         = "NONE";
+    
+    public static final String ZONE[] = {"0","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15"};
     
     public ColorProfileZRP()
     {
@@ -36,5 +39,9 @@ public class ColorProfileZRP extends ColorProfile{
         register(new ColorBundle(SENSE     , Color.BLUE   , null        ));  
         register(new ColorBundle(CLUSTERHEAD , Color.PINK  , null        ));
         register(new ColorBundle(NONE        , Color.LIGHT_GRAY , null        ));
+        
+        for(int i=0;i<Konstanta.ZONE_COUNT;i++) {
+            register(new ColorBundle(ZONE[i],Konstanta.color[i] ,null));
+        }
     }
 }

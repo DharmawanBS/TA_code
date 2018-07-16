@@ -8,8 +8,6 @@ package sidnet.stack.users.ZRP_route.app;
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import jist.runtime.JistAPI;
 import jist.swans.Constants;
 import jist.swans.mac.MacAddress;
@@ -26,6 +24,8 @@ import sidnet.core.misc.Node;
 import sidnet.core.query.Query;
 import sidnet.core.simcontrol.SimManager;
 import sidnet.stack.std.routing.heartbeat.MessageHeartbeat;
+import sidnet.stack.users.ZRP_route.colorprofile.ColorProfileZRP;
+import sidnet.stack.users.ZRP_route.driver.Cluster;
 import sidnet.stack.users.ZRP_route.driver.SequenceGenerator;
 import sidnet.stack.users.ZRP_route.routing.MessagePoolDataValue;
 import sidnet.stack.users.ZRP_route.ignoredpackage.PoolReceivedItem;
@@ -76,12 +76,15 @@ public class AppLayer implements AppInterface, CallbackInterface {
     
     private CSV_Statistics csv_stats;
     
+    private Cluster cluster;
+    
     /** Creates a new instance of the AppP2P */
     public AppLayer(Node myNode, 
     					short routingProtocolIndex,
     					StatsCollector stats,
                                         SequenceGenerator seq,
-                                        CSV_Statistics csv_stats)
+                                        CSV_Statistics csv_stats,
+                                        Cluster[] cluster)
     {
         this.self = JistAPI.proxyMany(this, new Class[] { AppInterface.class });
         this.myNode = myNode;
@@ -96,6 +99,7 @@ public class AppLayer implements AppInterface, CallbackInterface {
         this.stats = stats;
         
         this.csv_stats = csv_stats;
+        this.cluster = cluster[myNode.ClusterId];
     }    
     
     /* 
@@ -205,7 +209,7 @@ public class AppLayer implements AppInterface, CallbackInterface {
            if (myNode.getEnergyManagement().getBattery().getPercentageEnergyLevel() >= 1) {
         
             //double sensedValue = myNode.readAnalogSensorData(0);
-            double sensedValue = file.getData(myNode.ZoneId, (int) (JistAPI.getTime() / Constants.HOUR));
+            double sensedValue = file.getData(myNode.ClusterId, (int) (JistAPI.getTime() / Constants.HOUR));
             if (sensedValue == -1) return;
             aap.putValue(sensedValue,queryId);
 
@@ -227,7 +231,7 @@ public class AppLayer implements AppInterface, CallbackInterface {
            
             if (JistAPI.getTime() < endTime)
             {
-                if (myNode.getID() == 1) {
+                if (myNode.getID() == 36) {
                     long hour = (int) (JistAPI.getTime()/Constants.HOUR);
                     long minute = (int) ((JistAPI.getTime() - hour*Constants.HOUR)/Constants.MINUTE);
                     try {
@@ -355,6 +359,12 @@ public class AppLayer implements AppInterface, CallbackInterface {
              if (msgQuery.getQuery() != null) { /* a query init message */
                 if (!startedSensing) { /* To avoid creating duplicated sensing tasks due to duplicated requests, which may happen */
                     myNode.getNodeGUI().colorCode.mark(colorProfileGeneric, ColorProfileGeneric.SOURCE, ColorProfileGeneric.FOREVER); 
+                    /*if (cluster.CHCluster.contains(myNode.getIP())) {
+                        myNode.getNodeGUI().colorCode.mark(colorProfileGeneric,ColorProfileZRP.CLUSTERHEAD, ColorProfileGeneric.FOREVER);
+                    }
+                    else {
+                        myNode.getNodeGUI().colorCode.mark(colorProfileGeneric,ColorProfileZRP.ZONE[myNode.ClusterId], ColorProfileGeneric.FOREVER);
+                    }*/
                     
                     startedSensing = true;
                 
@@ -367,7 +377,7 @@ public class AppLayer implements AppInterface, CallbackInterface {
                     params.add(msgQuery.getQuery()
                     		           .getSinkNCSLocation2D()
                     		           .fromNCS(myNode.getLocationContext()));
-                    params.add(myNode.ZoneId);
+                    params.add(myNode.ClusterId);
                     
                     JistAPI.sleepBlock(msgQuery.getQuery().getSamplingInterval());
                     

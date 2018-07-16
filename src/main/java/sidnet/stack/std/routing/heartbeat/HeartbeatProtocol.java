@@ -100,6 +100,7 @@ public class HeartbeatProtocol implements RouteInterface.HeartbeatProtocol{
         {
             unregistered = true;
             MessageHeartbeat messageHeartbeat = new MessageHeartbeat(MessageHeartbeat.UNREGISTER);
+            messageHeartbeat.ClusterId = myNode.ClusterId;
             myNode.getNodeGUI().colorCode.mark(new ColorProfileGeneric(), ColorProfileGeneric.TRANSMIT, 200);
             JistAPI.sleepBlock(Constants.random.nextInt(100) * 100 * Constants.MILLI_SECOND); 
             netEntity.send(messageHeartbeat, NetAddress.ANY, Constants.NET_PROTOCOL_HEARTBEAT, Constants.NET_PRIORITY_NORMAL, (byte)100);  // TTL 100'
@@ -143,6 +144,9 @@ public class HeartbeatProtocol implements RouteInterface.HeartbeatProtocol{
         else {
             if (!myNode.neighboursList.contains(lastHop)) {
                 myNode.neighboursList.add(src, newEntry);
+                if (myNode.ClusterId == ((MessageHeartbeat)msg).ClusterId) {
+                    myNode.neighboursZoneList.add(src,newEntry);
+                }
             }
         }
         myNode.getNodeGUI().colorCode.mark(new ColorProfileGeneric(), ColorProfileGeneric.RECEIVE, 200);  

@@ -69,7 +69,7 @@ import sidnet.utilityviews.statscollector.StatEntry_PacketSentContor;
  * @author ZRP
  */
 public class ZRPDriver {
-    public static Zone zone = new Zone(Konstanta.ZONE_COUNT);
+    public static Cluster[] listCluster = new Cluster[16];
     private static CSV_Statistics csv_stats;
     private static CSV_NodeDie csv_nodedie;
     
@@ -132,7 +132,6 @@ public class ZRPDriver {
         
         System.out.println("Driver initialization complete!");     
     }
-    
   
   /**
    * Initialize simulation environment and field
@@ -144,6 +143,9 @@ public class ZRPDriver {
   public static Field createSim(int nodes, int length)
   {
     System.out.println("[ZRP Routing] : createSim()");
+    
+    // create cluster
+    cluster(length);
       
     /** Launch the SIDnet main graphical interface and set-up the title */       
     SimGUI simGUI = new SimGUI();
@@ -306,11 +308,7 @@ public class ZRPDriver {
         
         myNode[i].setZoneId(zone_id);
         myNode[i].csv_deathnode = csv_nodedie;
-        NodeEntry newEntry = new NodeEntry( null,
-                                            myNode[i].getIP(),
-                                            myNode[i].getNCS_Location2D()
-                                          );
-        zone.zone.get(zone_id).addZoneItem(myNode[i].getIP(),newEntry);
+        bobotCluster(myNode[i]);
         //System.out.println(i+" "+myNode[i].getLocation2D().getX()+" "+myNode[i].getLocation2D().getY()+" "+posisi);
     }
     
@@ -331,9 +329,15 @@ public class ZRPDriver {
     
     /** All the nodes will measure the same environment in this case, but this is not a limitation. You can have them heterogeneous */
     for (int i = 0; i < nodes; i++) {
-         myNode[i].addSensor(phenomenaLayer);
+        myNode[i].addSensor(phenomenaLayer);
+        myNode[i].myCluster = listCluster[myNode[i].ClusterId];
+        System.out.println("Node "+i+" "+myNode[i].ClusterId+" "+myNode[i].myCluster.id);
+        //System.out.println("Node "+i+" Zone "+myNode[i].ClusterId+" "+(listCluster[myNode[i].ClusterId].CHCluster.contains(myNode[i].getIP()) ? "CH" : "non"));
     }
     
+    for (int i = 0; i < Konstanta.ZONE_COUNT; i++) {
+        System.out.println("ZONE "+i+" horizontal "+listCluster[i].horizontal+" vertical "+listCluster[i].vertical+" CH "+listCluster[i].CHCluster.size()+" Anggota "+listCluster[i].myCluster.size());
+    }
     /** Allow simManager to handle nodes' GUI (internals)*/
     simManager.register(myNode);
           
@@ -352,13 +356,65 @@ public class ZRPDriver {
     System.out.println("Simulation Started");
     
     return field;
-  } 
+  }
+  
+    private static void cluster(int length) {
+        double interval = length/Math.round(Math.sqrt(Konstanta.ZONE_COUNT));
+        int i=0;
+        double horizontal=interval/2,vertical=interval/2;
+        while (i < Konstanta.ZONE_COUNT) {
+            listCluster[i] = new Cluster(i,new Location2D(horizontal,vertical));
+            listCluster[i].color = Konstanta.color[i];
+            i++;
+            horizontal+=interval;
+            if (horizontal > length) {
+                horizontal = interval/2;
+                vertical+=interval;
+            }
+        }
+    }
+    
+    private static void bobotCluster(Node myNode) {
+        double mid_x = listCluster[myNode.ClusterId].middle.getX();
+        double mid_y = listCluster[myNode.ClusterId].middle.getY();
+        
+        double node_x = myNode.getLocation2D().getX();
+        double node_y = myNode.getLocation2D().getY();
+        
+        NodeEntry item = new NodeEntry(null,myNode.getIP(),myNode.getNCS_Location2D());
+        if (myNode.getLocation2D().distanceTo(listCluster[myNode.ClusterId].middle) <= Konstanta.TRESHOLD) {
+            System.out.println("masukkan "+myNode.getID()+" ke list CH "+myNode.ClusterId);
+            listCluster[myNode.ClusterId].addCHCluster(myNode.getIP(),item);
+        }
+        listCluster[myNode.ClusterId].addMyCluster(myNode.getIP(), item);
+        
+        if (node_x > mid_x) listCluster[myNode.ClusterId].horizontal++;
+        else if (node_x < mid_x) listCluster[myNode.ClusterId].horizontal--;
+        
+        if (node_y > mid_y) listCluster[myNode.ClusterId].vertical++;
+        else if (node_y < mid_y) listCluster[myNode.ClusterId].vertical--;
+    }
   
   private static int generate_zone_id(Location2D loc,int length,int count) {
-      double x = loc.getX();
-      double y = loc.getY();
+      double distance = 0;
+      int cluster = -1;
+      for(int i=0;i<Konstanta.ZONE_COUNT;i++) {
+          double temp = loc.distanceTo(listCluster[i].middle);
+          if (cluster == -1) {
+              cluster = i;
+              distance = temp;
+          }
+          else if (temp < distance) {
+              cluster = i;
+              distance = temp;
+          }
+      }
       
-      return (int) (Math.floor(count*x/length) + count*(Math.floor(count*y/length)));
+      return cluster;
+//      double x = loc.getX();
+//      double y = loc.getY();
+//      
+//      return (int) (Math.floor(count*x/length) + count*(Math.floor(count*y/length)));
   }
   
    /**
@@ -418,7 +474,7 @@ public class ZRPDriver {
     
      /* *** Configuring the ISO layers - more or less self-explanatory *** */
                 /* APP layer configuration */
-                AppLayer app = new AppLayer(node, Constants.NET_PROTOCOL_INDEX_1, stats,seq,csv_stats);
+                AppLayer app = new AppLayer(node, Constants.NET_PROTOCOL_INDEX_1, stats,seq,csv_stats,listCluster);
                 
                 if (app.topologyGUI == null)
                     app.topologyGUI = topologyGUI;
@@ -437,7 +493,7 @@ public class ZRPDriver {
                 
                 //ShortestGeoPathRouting shortestGeographicalPathRouting = new ShortestGeoPathRouting(node);
                 
-                RoutingProtocol routingProtocol = new RoutingProtocol(node,stats,seq,zone);
+                RoutingProtocol routingProtocol = new RoutingProtocol(node,stats,seq,listCluster);
 
                 if(routingProtocol.topologyGUI == null) routingProtocol.topologyGUI = topologyGUI;
                 
@@ -527,7 +583,7 @@ public class ZRPDriver {
     
      /* *** Configuring the ISO layers - more or less self-explanatory *** */
                 /* APP layer configuration */
-                AppLayer app = new AppLayer(node, Constants.NET_PROTOCOL_INDEX_1, stats,seq,csv_stats);
+                AppLayer app = new AppLayer(node, Constants.NET_PROTOCOL_INDEX_1, stats,seq,csv_stats,listCluster);
                 
                 if (app.topologyGUI == null)
                     app.topologyGUI = topologyGUI;
@@ -546,7 +602,7 @@ public class ZRPDriver {
                 
                 //ShortestGeoPathRouting shortestGeographicalPathRouting = new ShortestGeoPathRouting(node);
                 
-                RoutingProtocol routingProtocol = new RoutingProtocol(node,stats,seq,zone);
+                RoutingProtocol routingProtocol = new RoutingProtocol(node,stats,seq,listCluster);
 
                 if(routingProtocol.topologyGUI == null) routingProtocol.topologyGUI = topologyGUI;
                 

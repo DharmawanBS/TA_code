@@ -14,6 +14,7 @@ import jist.swans.Constants;
  */
 public class Konstanta {
     public static int ZONE_COUNT = 16;
+    public static int TRESHOLD = 30;
     
     public static int SINK = 49;
     

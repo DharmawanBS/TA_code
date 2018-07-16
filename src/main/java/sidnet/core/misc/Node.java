@@ -33,7 +33,7 @@ import sidnet.core.interfaces.NodeHardwareInterface;
 import sidnet.core.interfaces.Sensor;
 import sidnet.core.interfaces.SimControl;
 import sidnet.core.simcontrol.SimManager;
-import sidnet.stack.users.ZRP_route.driver.Zone.Zone_info;
+import sidnet.stack.users.ZRP_route.driver.Cluster;
 import sidnet.stack.users.ZRP_route.ignoredpackage.CSV_NodeDie;
 
 /**
@@ -71,6 +71,8 @@ public class Node implements NodeAPI, NodeHardwareInterface{
     public NodesList neighboursList;        // for users, keeps an updated list of neighbors (list may shrink if nodes die)
     public NodesList physicalNeighboursList; // for statistics only, keeps the list of topological neighbors (list will not shrink if nodes die)
     
+    public NodesList neighboursZoneList = new NodesList();
+    
     private NodeGUIimpl nodeGUI;
     
     private CallbackInterface appCallback;
@@ -80,7 +82,8 @@ public class Node implements NodeAPI, NodeHardwareInterface{
    
     private boolean faulty = false;
     
-    public int ZoneId;
+    public int ClusterId;
+    public Cluster myCluster;
     
     public NodesList neighbourZoneList;
     
@@ -104,7 +107,7 @@ public class Node implements NodeAPI, NodeHardwareInterface{
         neighboursList = new NodesList();   
         physicalNeighboursList = new NodesList();
         
-        ZoneId = 0;
+        ClusterId = 0;
         neighbourZoneList = new NodesList();
     }
     
@@ -317,10 +320,10 @@ public class Node implements NodeAPI, NodeHardwareInterface{
     }
 
     public void setZoneId(int ZoneId) {
-        this.ZoneId = ZoneId;
+        this.ClusterId = ZoneId;
     }
 
     public int getZoneId() {
-        return ZoneId;
+        return ClusterId;
     }
 }

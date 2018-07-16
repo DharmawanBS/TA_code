@@ -24,6 +24,8 @@ public class MessageHeartbeat implements Message
     
     private NCS_Location2D loc = null;
     
+    public int ClusterId;
+    
     public NCS_Location2D getNCS_Location(){ return loc;};
     public void setNCS_Location(NCS_Location2D loc){ this.loc = loc;};
     
