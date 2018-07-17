@@ -223,6 +223,7 @@ public class ZRPDriver {
     statistics.monitor(new StatEntry_PacketReceivedContor("DATA"));
     statistics.monitor(new StatEntry_PacketReceivedPercentage("DATA"));
     statistics.monitor(new StatEntry_PacketDeliveryLatency("DATA", StatEntry_PacketDeliveryLatency.MODE.MAX));
+    statistics.monitor(new StatEntry_PacketDeliveryLatency("DATA", StatEntry_PacketDeliveryLatency.MODE.AVG));
     
     /*StatEntry_GeneralPurposeContor createdCounter_All = new StatEntry_GeneralPurposeContor("AV_Created");
     StatEntry_GeneralPurposeContor receivedCounter_All = new StatEntry_GeneralPurposeContor("AV_Received");*/
@@ -246,6 +247,7 @@ public class ZRPDriver {
     statistics.monitor(new StatEntry_PacketReceivedContor("DATA_PRI_1"));
     statistics.monitor(new StatEntry_PacketReceivedPercentage("DATA_PRI_1"));
     statistics.monitor(new StatEntry_PacketDeliveryLatency("DATA_PRI_1", StatEntry_PacketDeliveryLatency.MODE.MAX));
+    statistics.monitor(new StatEntry_PacketDeliveryLatency("DATA_PRI_1", StatEntry_PacketDeliveryLatency.MODE.AVG));
     
     StatEntry_GeneralPurposeContor createdCounter2 = new StatEntry_GeneralPurposeContor("Created_PRI_2");
     StatEntry_GeneralPurposeContor receivedCounter2 = new StatEntry_GeneralPurposeContor("Received_PRI_2");
@@ -257,6 +259,7 @@ public class ZRPDriver {
     statistics.monitor(new StatEntry_PacketReceivedContor("DATA_PRI_2"));
     statistics.monitor(new StatEntry_PacketReceivedPercentage("DATA_PRI_2"));
     statistics.monitor(new StatEntry_PacketDeliveryLatency("DATA_PRI_2", StatEntry_PacketDeliveryLatency.MODE.MAX));
+    statistics.monitor(new StatEntry_PacketDeliveryLatency("DATA_PRI_2", StatEntry_PacketDeliveryLatency.MODE.AVG));
     
     /*statistics.monitor(createdCounter_All);
     statistics.monitor(receivedCounter_All);

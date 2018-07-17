@@ -661,7 +661,7 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
             if (!this.netQueueFULL) {
                 this.netQueueFULL = true;
                 System.out.println("ERROR: Net Queue full node" + myNode.getID() + " TIME (SEC): " + (JistAPI.getTime() / Constants.SECOND));
-                myNode.getNodeGUI().colorCode.mark(new ColorProfileGeneric(), ColorProfileGeneric.DEAD, ColorProfileGeneric.FOREVER);
+                //myNode.getNodeGUI().colorCode.mark(new ColorProfileGeneric(), ColorProfileGeneric.DEAD, ColorProfileGeneric.FOREVER);
                 //throw new RuntimeException("Net Queue Full");
             }
         }
@@ -675,8 +675,16 @@ public class RoutingProtocol implements RouteInterface.ZRP_Route {
                 increaseThisRetry(xMsg.getS_seq());
                 System.out.println("NODE:" + myNode.getID() + " Retrying(" + dataRetry.get(xMsg.getS_seq()) + ") PID:" + xMsg.getS_seq() + " send to node " + nextHopMac);
 
+                double min = 0;
+                double max = myNode.neighbourZoneList.size()*2;
+                
+                //double distance = myNode.getNCS_Location2D().distanceTo(this.sinkLocation);
+                
+                
+                JistAPI.sleepBlock((long) (min + (max-min)*Math.random())*Constants.SECOND);
+                
                 //sleep before retry
-                JistAPI.sleepBlock(Konstanta.INTERVAL_WAITING_BEFORE_RETRY);
+                //JistAPI.sleepBlock(Konstanta.INTERVAL_WAITING_BEFORE_RETRY);
 
                 NetMessage.Ip nmip = (NetMessage.Ip) msg;
 
